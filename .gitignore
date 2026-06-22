@@ -1,0 +1,23 @@
+# Rust / Soroban build output
+target/
+**/target/
+
+# Node / Next.js
+node_modules/
+**/node_modules/
+.next/
+**/.next/
+dist/
+**/dist/
+*.tsbuildinfo
+
+# Secrets & local env — NEVER commit (the dev signer seam lives here)
+.env
+.env.*
+!.env.example
+**/.env.local
+**/.env*.local
+
+# OS / editor
+.DS_Store
+*.swp
