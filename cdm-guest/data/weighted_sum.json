@@ -1,0 +1,8 @@
+{
+  "op": 0,
+  "target_field": 0,
+  "k": 2,
+  "filter_bytecode": "01000102000010",
+  "consts": [30],
+  "weights": [1, 2, 3]
+}
