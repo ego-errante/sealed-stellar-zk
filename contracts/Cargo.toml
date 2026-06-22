@@ -1,0 +1,16 @@
+[workspace]
+resolver = "2"
+members = ["cdm-shared", "dataset-registry", "job-manager"]
+
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+debug = 0
+strip = "symbols"
+debug-assertions = false
+panic = "abort"
+codegen-units = 1
+# Full LTO breaks cross-contract path deps (job-manager → dataset-registry) with a
+# "failed to load bitcode" error under wasm32v1-none. These contracts are tiny, so the
+# size win from LTO is negligible; disable it to keep the cross-contract link working.
+lto = false

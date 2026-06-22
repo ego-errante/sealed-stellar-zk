@@ -1,0 +1,20 @@
+[package]
+name = "job-manager"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["lib", "cdylib"]
+doctest = false
+
+[dependencies]
+soroban-sdk = "25.1.0"
+risc0-interface = { path = "../../derisk/stellar-risc0-verifier/contracts/interface" }
+
+[dev-dependencies]
+soroban-sdk = { version = "25.1.0", features = ["testutils"] }
+# Full contract crate only for tests: the test deploys a real DatasetRegistry to exercise the
+# cross-contract get_dataset call. Production wasm uses the client-only `registry` module instead.
+dataset-registry = { path = "../dataset-registry" }
+groth16-verifier = { path = "../../derisk/stellar-risc0-verifier/contracts/groth16-verifier" }
+hex = "0.4"
