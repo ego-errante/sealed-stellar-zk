@@ -1,0 +1,16 @@
+{
+  "name": "stellar-zk-cdm-frontend",
+  "private": true,
+  "workspaces": [
+    "packages/shared",
+    "packages/dataset-registry",
+    "packages/job-manager",
+    "packages/site"
+  ],
+  "scripts": {
+    "build:packages": "npm -w packages/shared run build && npm -w packages/dataset-registry run build && npm -w packages/job-manager run build",
+    "dev": "npm -w packages/site run dev",
+    "build": "npm run build:packages && npm -w packages/site run build",
+    "test": "npm -w packages/site run test"
+  }
+}
