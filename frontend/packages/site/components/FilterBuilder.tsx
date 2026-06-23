@@ -308,10 +308,13 @@ export function FilterBuilder({
                 <Label className="text-xs">Value</Label>
                 <Input
                   type="number"
+                  min={0}
                   value={condition.value}
                   onChange={(e) =>
                     updateCondition(condition.id, {
-                      value: parseInt(e.target.value) || 0,
+                      // Clamp to >= 0: filter constants serialize to the contract's Vec<u64>, so a
+                      // negative would throw an opaque serialization error at submit time.
+                      value: Math.max(0, parseInt(e.target.value) || 0),
                     })
                   }
                   className="h-9"

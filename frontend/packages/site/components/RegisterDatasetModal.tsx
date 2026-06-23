@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRegisterDataset } from "@/hooks/useDatasetRegistry";
 import { saveCsv } from "@/lib/csvStore";
+import { countDataRows } from "@/lib/csv";
 import { proverRegister, type RegisterResult } from "@/lib/prover";
 
 export function RegisterDatasetModal() {
@@ -28,7 +29,9 @@ export function RegisterDatasetModal() {
   const [cooldown, setCooldown] = useState(0);
   const register = useRegisterDataset();
 
-  const rowCount = csv.trim() ? csv.trim().split("\n").length : 0;
+  // Count non-blank lines (matches proverlib::parse_csv and the on-chain row_count) so the
+  // "over 20 rows — pre-bake" live-prove hint can't be thrown off by blank separator lines.
+  const rowCount = countDataRows(csv);
 
   function reset() {
     setCsv("");

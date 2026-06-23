@@ -1,6 +1,7 @@
 "use client";
 
 import { OpCodes } from "@cdm/shared";
+import { resultDisplayState } from "@/lib/resultState";
 
 /** Renders a completed request's result: the unsealed value, k-anon suppression, or overflow. */
 export function ResultView({
@@ -14,14 +15,10 @@ export function ResultView({
   overflow: boolean;
   op: number;
 }) {
-  if (overflow) {
-    return (
-      <span className="font-mono text-sm font-semibold text-alert">
-        Overflow
-      </span>
-    );
-  }
-  if (!kMet) {
+  // Suppression OUTRANKS overflow: never reveal "Overflow" for a withheld result (it would leak
+  // that a small <k matching subset existed and overflowed).
+  const state = resultDisplayState(kMet, overflow);
+  if (state === "suppressed") {
     return (
       <span
         className="inline-flex items-center gap-2 rounded-sm bg-seal px-2 py-1 font-mono text-xs text-muted-foreground"
@@ -29,6 +26,13 @@ export function ResultView({
       >
         <span className="redaction h-3 w-10" />
         Suppressed · k-anon
+      </span>
+    );
+  }
+  if (state === "overflow") {
+    return (
+      <span className="font-mono text-sm font-semibold text-alert">
+        Overflow
       </span>
     );
   }

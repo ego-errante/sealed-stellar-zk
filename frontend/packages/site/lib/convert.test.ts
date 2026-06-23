@@ -37,7 +37,7 @@ describe("toQueryParams (FilterBuilder output → contract QueryParams)", () => 
 });
 
 describe("toProveParams (on-chain Request.params + dataset.k → prover ProveParams)", () => {
-  it("encodes filter_bytecode Buffer to hex (no 0x) and consts/k to numbers", () => {
+  it("encodes filter_bytecode Buffer to hex (no 0x) and consts to exact decimal strings", () => {
     const qp: QueryParams = {
       op: 3,
       target_field: 0,
@@ -45,15 +45,39 @@ describe("toProveParams (on-chain Request.params + dataset.k → prover ProvePar
       consts: [30n],
       weights: [],
     };
-    const pp = toProveParams(qp, 2n);
+    const pp = toProveParams(qp, 2n, 1n);
     expect(pp).toEqual({
       op: 3,
       target_field: 0,
       k: 2,
       filter_bytecode: "01000102000010",
-      consts: [30],
+      consts: ["30"],
       weights: [],
+      request_id: 1,
     });
+  });
+
+  it("threads the request_id through so the proof binds to one specific request", () => {
+    const qp: QueryParams = {
+      op: 3,
+      target_field: 0,
+      filter_bytecode: Buffer.alloc(0),
+      consts: [],
+      weights: [],
+    };
+    expect(toProveParams(qp, 2n, 42n).request_id).toBe(42);
+  });
+
+  it("preserves a u64 const above 2^53 as an exact decimal string (no precision loss)", () => {
+    const big = 9007199254740993n; // 2^53 + 1 — not representable as a JS number
+    const qp: QueryParams = {
+      op: 1,
+      target_field: 0,
+      filter_bytecode: Buffer.alloc(0),
+      consts: [big],
+      weights: [],
+    };
+    expect(toProveParams(qp, 1n, 1n).consts).toEqual(["9007199254740993"]);
   });
 
   it("emits an empty string for an empty filter", () => {
@@ -64,7 +88,7 @@ describe("toProveParams (on-chain Request.params + dataset.k → prover ProvePar
       consts: [],
       weights: [],
     };
-    expect(toProveParams(qp, 5n).filter_bytecode).toBe("");
+    expect(toProveParams(qp, 5n, 1n).filter_bytecode).toBe("");
   });
 });
 
@@ -73,9 +97,9 @@ describe("round-trip: compileFilterDSL → toQueryParams → toProveParams is by
     // PUSH_FIELD 0x01 | field 0x0001 | PUSH_CONST 0x02 | const 0x0000 | GT 0x10
     const compiled = compileFilterDSL(["GT", 1, 30]);
     const qp = toQueryParams({ op: 3, targetField: 0, filter: compiled, weights: [] });
-    const pp = toProveParams(qp, 2n);
+    const pp = toProveParams(qp, 2n, 1n);
     expect(pp.filter_bytecode).toBe("01000102000010");
-    expect(pp.consts).toEqual([30]);
+    expect(pp.consts).toEqual(["30"]);
     expect(pp.k).toBe(2);
   });
 });

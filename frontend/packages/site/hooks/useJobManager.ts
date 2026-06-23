@@ -3,30 +3,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Buffer } from "buffer";
 import { useMemo } from "react";
-import type { QueryParams, RequestStatus } from "job-manager";
+import type { QueryParams } from "job-manager";
 import { makeClients } from "@/lib/clients";
 import { useWallet } from "@/hooks/useWallet";
+import { enumerateRequests, type JobLike } from "@/lib/requests";
 
-export type Status = RequestStatus["tag"]; // "Pending" | "Accepted" | "Rejected" | "Completed"
-
-export interface RequestView {
-  id: bigint;
-  buyer: string;
-  datasetId: bigint;
-  status: Status;
-  op: number;
-  targetField: number;
-  result: bigint;
-  kMet: boolean;
-  overflow: boolean;
-  params: QueryParams;
-}
-
-const MAX_PROBE = 200;
+export type { RequestView, Status } from "@/lib/requests";
 
 /**
- * JobManager has no request count, so enumerate by probing get_request(1,2,3…) until a
- * not-found trap. IDs are sequential with no gaps, so the first failure ends the list.
+ * Enumerate requests via the shared {@link enumerateRequests} helper, which prefers
+ * JobManager.get_request_count (deterministic, count-bounded) and only falls back to probing.
+ * Polling is paused while the tab is backgrounded so it doesn't hammer the public RPC.
  */
 export function useRequests() {
   const { address } = useWallet();
@@ -34,30 +21,8 @@ export function useRequests() {
   return useQuery({
     queryKey: ["requests"],
     refetchInterval: 5000,
-    queryFn: async (): Promise<RequestView[]> => {
-      const out: RequestView[] = [];
-      for (let i = 1; i <= MAX_PROBE; i++) {
-        try {
-          const r = (await clients.job.get_request({ request_id: BigInt(i) }))
-            .result;
-          out.push({
-            id: BigInt(i),
-            buyer: r.buyer,
-            datasetId: r.dataset_id,
-            status: r.status.tag,
-            op: r.params.op,
-            targetField: r.params.target_field,
-            result: r.result,
-            kMet: r.k_met,
-            overflow: r.overflow,
-            params: r.params,
-          });
-        } catch {
-          break; // no request at this id → end of list
-        }
-      }
-      return out;
-    },
+    refetchIntervalInBackground: false,
+    queryFn: () => enumerateRequests(clients.job as unknown as JobLike),
   });
 }
 

@@ -70,7 +70,7 @@ export function FulfillPanel({
     }
     setProving(true);
     try {
-      const params = toProveParams(request.params, dataset.k);
+      const params = toProveParams(request.params, dataset.k, request.id);
       const { seal: s, journal: j } = await proverProve(csv, params);
       await submitProof(s, j);
     } catch (e) {

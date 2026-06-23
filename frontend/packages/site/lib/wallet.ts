@@ -7,13 +7,20 @@
 // DEV SEAM: when NEXT_PUBLIC_DEV_SECRET is set we sign locally with basicNodeSigner instead of
 // Freighter, so the full flow is drivable unattended (Playwright / headless). It is OFF by
 // default and never set in the demo — production uses Freighter.
+//
+// SECURITY: the secret is only ever READ when NODE_ENV !== "production". Because Next inlines
+// NODE_ENV at build time, a production build statically eliminates the whole branch, so
+// NEXT_PUBLIC_DEV_SECRET is never referenced — it can't be baked into the client bundle nor can it
+// silently bypass Freighter, even if the env var is accidentally present at build time.
 
 import { Keypair } from "@stellar/stellar-sdk";
 import { basicNodeSigner } from "@stellar/stellar-sdk/contract";
 import { TESTNET_PASSPHRASE } from "@/config/network";
 
-const DEV_SECRET = process.env.NEXT_PUBLIC_DEV_SECRET;
-const devKeypair = DEV_SECRET ? Keypair.fromSecret(DEV_SECRET) : null;
+const devKeypair =
+  process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_DEV_SECRET
+    ? Keypair.fromSecret(process.env.NEXT_PUBLIC_DEV_SECRET)
+    : null;
 const devSigner = devKeypair ? basicNodeSigner(devKeypair, TESTNET_PASSPHRASE) : null;
 
 // ---- Freighter (kit) path -------------------------------------------------
