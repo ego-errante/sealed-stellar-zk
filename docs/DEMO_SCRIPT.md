@@ -100,6 +100,11 @@ terminal: a tampered-journal `fulfill` **trapping** on-chain (`Error(Contract,#0
 - The pre-baked proof's bound Merkle root matches `demo/ds4_age_balance.csv` exactly (verified), so it
   fulfills cleanly against a dataset registered from that CSV. If you register a *fresh* dataset on
   camera, its root will match too (same CSV) — the same proof still fulfills.
+- **The pre-baked proof now binds to `request_id = 1`** (the proof commits the request id to prevent
+  replay). So on camera, fulfill the **first** request the buyer submits against a freshly-deployed
+  JobManager (its ids start at 1). If you've already created requests in a prior run, either redeploy /
+  use a fresh JobManager so the buyer's request is id 1, or use the **live "Prove locally"** path,
+  which proves for whatever the actual request id is. (Register with `k = 2` to match the proof.)
 - Keep each Freighter signature in-frame briefly; the wallet popups are good evidence it's really
   on-chain.
 - If a request id collides with an earlier demo run, just register a fresh dataset and submit a new

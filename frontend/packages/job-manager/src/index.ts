@@ -34,7 +34,7 @@ if (typeof window !== "undefined") {
 export const networks = {
   testnet: {
     networkPassphrase: "Test SDF Network ; September 2015",
-    contractId: "CAAJSFAR3FSHXVR3JQRWOMCDADRAHL3Y4H45KSEK76WM6FBBGY4CYHAU",
+    contractId: "CCYH2WH7ZN4YXQ2WW455OSEVDZHRLJT2RWP5BCCWLWQ2NXOFQDAMW4XE",
   }
 } as const
 
@@ -341,6 +341,13 @@ export interface Client {
    */
   submit_request: ({buyer, dataset_id, params}: {buyer: string, dataset_id: u64, params: QueryParams}, options?: MethodOptions) => Promise<AssembledTransaction<u64>>
 
+  /**
+   * Construct and simulate a get_request_count transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   * Number of requests submitted so far. Request ids are dense in `1..=get_request_count()`,
+   * so callers enumerate deterministically instead of probing until a not-found trap.
+   */
+  get_request_count: (options?: MethodOptions) => Promise<AssembledTransaction<u64>>
+
 }
 export class Client extends ContractClient {
   static async deploy<T = Client>(
@@ -371,6 +378,7 @@ export class Client extends ContractClient {
         "AAAAAAAAAAAAAAAOYWNjZXB0X3JlcXVlc3QAAAAAAAIAAAAAAAAABW93bmVyAAAAAAAAEwAAAAAAAAAKcmVxdWVzdF9pZAAAAAAABgAAAAA=",
         "AAAAAAAAAAAAAAAOcmVqZWN0X3JlcXVlc3QAAAAAAAIAAAAAAAAABW93bmVyAAAAAAAAEwAAAAAAAAAKcmVxdWVzdF9pZAAAAAAABgAAAAA=",
         "AAAAAAAAAD1CdXllciBzdWJtaXRzIGEgcXVlcnkuIEVuZm9yY2VzIHBlci0oYnV5ZXIsZGF0YXNldCkgY29vbGRvd24uAAAAAAAADnN1Ym1pdF9yZXF1ZXN0AAAAAAADAAAAAAAAAAVidXllcgAAAAAAABMAAAAAAAAACmRhdGFzZXRfaWQAAAAAAAYAAAAAAAAABnBhcmFtcwAAAAAH0AAAAAtRdWVyeVBhcmFtcwAAAAABAAAABg==",
+        "AAAAAAAAAKpOdW1iZXIgb2YgcmVxdWVzdHMgc3VibWl0dGVkIHNvIGZhci4gUmVxdWVzdCBpZHMgYXJlIGRlbnNlIGluIGAxLi49Z2V0X3JlcXVlc3RfY291bnQoKWAsCnNvIGNhbGxlcnMgZW51bWVyYXRlIGRldGVybWluaXN0aWNhbGx5IGluc3RlYWQgb2YgcHJvYmluZyB1bnRpbCBhIG5vdC1mb3VuZCB0cmFwLgAAAAAAEWdldF9yZXF1ZXN0X2NvdW50AAAAAAAAAAAAAAEAAAAG",
         "AAAAAQAAAAAAAAAAAAAAB0RhdGFzZXQAAAAABgAAAAAAAAAMY29vbGRvd25fc2VjAAAABAAAAAAAAAABawAAAAAAAAYAAAAAAAAAC21lcmtsZV9yb290AAAAA+4AAAAgAAAAAAAAAAtudW1fY29sdW1ucwAAAAAEAAAAAAAAAAVvd25lcgAAAAAAABMAAAAAAAAACXJvd19jb3VudAAAAAAAAAY=",
         "AAAAAQAAAZFPdXRwdXQgb2YgYSBSSVNDIFplcm8gZ3Vlc3QgcHJvZ3JhbSBleGVjdXRpb24uCgpUaGUgb3V0cHV0IGNvbnRhaW5zIHRoZSBwdWJsaWMgcmVzdWx0cyBvZiBleGVjdXRpb24gKGpvdXJuYWwpIGFuZCBhbnkKYXNzdW1wdGlvbnMgKGRlcGVuZGVuY2llcyBvbiBvdGhlciBwcm9vZnMpLiBUaGlzIHN0cnVjdHVyZSBpcyBoYXNoZWQKdG8gcHJvZHVjZSB0aGUgYG91dHB1dGAgZmllbGQgaW4gW2BSZWNlaXB0Q2xhaW1gXS4KCiMgRmllbGRzCgotICoqam91cm5hbF9kaWdlc3QqKjogU0hBLTI1NiBoYXNoIG9mIHRoZSBqb3VybmFsIChwdWJsaWMgb3V0cHV0cykKLSAqKmFzc3VtcHRpb25zX2RpZ2VzdCoqOiBTSEEtMjU2IGhhc2ggb2YgYXNzdW1wdGlvbnMgKHplcm8gZm9yCnVuY29uZGl0aW9uYWwgcHJvb2ZzKQAAAAAAAAAAAAAGT3V0cHV0AAAAAAACAAAAh1NIQS0yNTYgZGlnZXN0IG9mIGFzc3VtcHRpb25zIChkZXBlbmRlbmNpZXMgb24gb3RoZXIgcmVjZWlwdHMpLgoKRm9yIHVuY29uZGl0aW9uYWwgcmVjZWlwdHMgKHRoZSBjb21tb24gY2FzZSksIHRoaXMgaXMgdGhlIHplcm8gZGlnZXN0LgAAAAASYXNzdW1wdGlvbnNfZGlnZXN0AAAAAAPuAAAAIAAAAExTSEEtMjU2IGRpZ2VzdCBvZiB0aGUgam91cm5hbCBieXRlcyAocHVibGljIG91dHB1dHMgZnJvbSB0aGUgZ3Vlc3QKcHJvZ3JhbSkuAAAADmpvdXJuYWxfZGlnZXN0AAAAAAPuAAAAIA==",
         "AAAAAQAABABBIHJlY2VpcHQgYXR0ZXN0aW5nIHRvIGEgY2xhaW0gdXNpbmcgdGhlIFJJU0MgWmVybyBwcm9vZiBzeXN0ZW0uCgpBIHJlY2VpcHQgaXMgdGhlIGNvbXBsZXRlIHByb29mIHBhY2thZ2UgdGhhdCBjYW4gYmUgdmVyaWZpZWQgb24tY2hhaW4uIEl0CmNvbWJpbmVzIGEgY3J5cHRvZ3JhcGhpYyBwcm9vZiAoc2VhbCkgd2l0aCBhIGNsYWltIGFib3V0IHdoYXQgd2FzIGV4ZWN1dGVkLgoKIyBTdHJ1Y3R1cmUKCi0gKipbYHNlYWxgXShSZWNlaXB0OjpzZWFsKSoqOiBBIHplcm8ta25vd2xlZGdlIHByb29mIGF0dGVzdGluZyB0byBrbm93bGVkZ2UKb2YgYSB3aXRuZXNzIGZvciB0aGUgY2xhaW0KLSAqKltgY2xhaW1fZGlnZXN0YF0oUmVjZWlwdDo6Y2xhaW1fZGlnZXN0KSoqOiBUaGUgU0hBLTI1NiBoYXNoIG9mIGEKW2BSZWNlaXB0Q2xhaW1gXSBzdHJ1Y3QgY29udGFpbmluZyBleGVjdXRpb24gZGV0YWlscyAocHJvZ3JhbSBJRCwgam91cm5hbCwKZXhpdCBjb2RlLCBldGMuKQoKIyBJbXBvcnRhbnQ6IENsYWltIERpZ2VzdCBWYWxpZGF0aW9uCgpUaGUgYGNsYWltX2RpZ2VzdGAgZmllbGQgKiptdXN0KiogYmUgY29ycmVjdGx5IGNvbXB1dGVkIGJ5IHRoZSBjYWxsZXIgZm9yCnZlcmlmaWNhdGlvbiB0byBoYXZlIG1lYW5pbmdmdWwgc2VjdXJpdHkgZ3VhcmFudGVlcy4gVGhpcyBpcyBzaW1pbGFyIHRvCnZlcmlmeWluZyBhbiBFQ0RTQSBzaWduYXR1cmUgd2hlcmUgdGhlIG1lc3NhZ2UgaGFzaCBtdXN0IGJlIGNvbXB1dGVkCmNvcnJlY3RseS4KCkZvciBzdGFuZGFyZCBzdWNjZXNzZnVsIGV4ZWN1dGlvbnMsIHVzZToKYGBgaWdub3JlCmxldCBjbGFpbSA9IFJlY2VpcHRDbGFpbTo6bmV3KCZlbnYsIGltYWdlX2lkLCBqb3VybmFsX2RpZ2VzdCk7CmxldCBjbGFpbV9kaWdlc3QgPSBjbGFpbS5kaWdlc3QoJmVudik7CmBgYAoKIyBFeGFtcGxlCgpgYGBpZ25vcmUKdXNlIHJpc2MwX3ZlcmlmaWVyX2ludGVyZmFjZTo6e1JlY2VpcHQsIFJlY2VpcHRDbGFpbSwgU2VhbH07CgpsZXQgY2xhaW0gPSBSZWNlaXB0Q2xhAAAAAAAAAAdSZWNlaXB0AAAAAAIAAAAuU0hBLTI1NiBkaWdlc3Qgb2YgdGhlIFtgUmVjZWlwdENsYWltYF0gc3RydWN0LgAAAAAADGNsYWltX2RpZ2VzdAAAA+4AAAAgAAAALlRoZSB6ZXJvLWtub3dsZWRnZSBwcm9vZiAoU05BUkspIGFzIHJhdyBieXRlcy4AAAAAAARzZWFsAAAADg==",
@@ -388,6 +396,7 @@ export class Client extends ContractClient {
         get_request: this.txFromJSON<Request>,
         accept_request: this.txFromJSON<null>,
         reject_request: this.txFromJSON<null>,
-        submit_request: this.txFromJSON<u64>
+        submit_request: this.txFromJSON<u64>,
+        get_request_count: this.txFromJSON<u64>
   }
 }

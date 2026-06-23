@@ -102,10 +102,10 @@ The lifecycle, end to end:
 
 The guest runs entirely inside the RISC Zero zkVM. It re-derives the Merkle root from the rows it was
 given, evaluates the filter bytecode per row, aggregates the matching rows, applies k-anonymity, and
-commits a **fixed-layout 95-byte journal**:
+commits a **fixed-layout 103-byte journal**:
 
 ```
-root[32] │ query_hash[32] │ op[1] │ num_columns[4 LE] │ k[8 LE] │ count[8 LE] │ result[8 LE] │ k_met[1] │ overflow[1]
+root[32] │ query_hash[32] │ op[1] │ num_columns[4 LE] │ k[8 LE] │ count[8 LE] │ result[8 LE] │ k_met[1] │ overflow[1] │ request_id[8 LE]
 ```
 
 `JobManager.fulfill` does two things the verifier alone can't:
@@ -114,10 +114,11 @@ root[32] │ query_hash[32] │ op[1] │ num_columns[4 LE] │ k[8 LE] │ coun
    (Nethermind's verifier, BN254 host functions). An invalid proof, or a proof from a *different*
    guest, traps here.
 2. **Bind** — even a valid proof is rejected unless its journal matches the *on-chain* facts:
-   `journal.root == dataset.merkle_root`, `num_columns`, `op == request.op`, `k == dataset.k`, and a
-   **recomputed `query_hash`** over the request's exact `(op, target, filter, consts, weights, k)`.
-   This is what stops an owner from proving an honest computation over the *wrong* dataset or a
-   *different* query and passing it off as the answer.
+   `journal.root == dataset.merkle_root`, `num_columns`, `op == request.op`, `k == dataset.k`, a
+   **recomputed `query_hash`** over the request's exact `(op, target, filter, consts, weights, k)`,
+   and `journal.request_id == request_id`. This stops an owner from proving an honest computation
+   over the *wrong* dataset or a *different* query — and, via the request_id binding, stops a valid
+   proof from being **replayed** to fulfill a different (otherwise identical) request.
 
 The journal carries **no rows** — only the root, the query identity, and the scalar result. The buyer
 never sees data, only a number the chain has certified.
@@ -158,22 +159,27 @@ matters.
 
 ## Live on testnet
 
-Network: **Stellar Testnet**, Protocol 27. Deployed 2026-06-22.
+Network: **Stellar Testnet**, Protocol 27. Deployed 2026-06-22 (the front end + the pre-baked demo
+proof point at this pristine pair — request ids start at 1, so the proof in `demo/` fulfills request 1).
 
 | Contract | Address |
 |----------|---------|
-| **DatasetRegistry** | `CBJ4XTOHF2GRCPLYV57HO2E3N6HTGRNNMVZCTTYJ4G6H5SGVRVO6LYS4` |
-| **JobManager** | `CAAJSFAR3FSHXVR3JQRWOMCDADRAHL3Y4H45KSEK76WM6FBBGY4CYHAU` |
+| **DatasetRegistry** | `CC5XUULE2ZW3KURTIGEFOAVWY2UKQ4QJNW7L4WEQVSEMOIOEQ2GZEGWG` |
+| **JobManager** | `CCYH2WH7ZN4YXQ2WW455OSEVDZHRLJT2RWP5BCCWLWQ2NXOFQDAMW4XE` |
 | VerifierRouter (Nethermind) | `CBRBVQP2GOW6FONS4S4Q6BEC53BAJJGWOJRXC4KNDCFJ6WG673MQX633` |
 | Groth16Verifier (Nethermind) | `CALVN6PA6YIGSIKI6T7ZZAP2IW7UF3N4MLNVMOU2DWQ7HUYFXLMBDIX4` |
 
 - **Guest `image_id`** (the one program the JobManager trusts):
-  `e46e5b3c7043b189beea1751708f51db192258d9957954a18f04a0f8c2763f5f`
-- **Proven on-chain:** `COUNT(age > 30)` → `get_result` = `(3, true, false)`;
-  `SUM(balance where age > 30)` → `(310, true, false)`. Both are real Groth16 proofs verified through
-  the router.
-- **Tamper rejection proven:** flipping a single journal byte makes the router → Groth16 verifier
-  **trap** (`Error(Contract,#0)`); the `fulfill` fails at simulation and the request stays `Accepted`.
+  `6290a9cb12b55075f93834a58eccfa100b7839157f37df8b3f4eae78060108c3`
+- **Proven end-to-end on-chain** on an identical instance (`JobManager
+  CD5FEIP2FG43VQKJ7E7ODOGYJ3ZAT5CDN6ZKQCOQRVJCQQBIRWJ4NU4I`, deployed from the same wasm + image_id):
+  register → submit → accept → `fulfill` with the real Groth16 proof → **`get_result` = `(3, true, false)`**
+  ([fulfill tx](https://stellar.expert/explorer/testnet/tx/b8dc567e93e7e912e35fd6007b787b1c5c8827beff0ae76db61654cfdc2e7b32)).
+- **Replay rejection proven on-chain:** an *identical* second request (id 2) cannot be fulfilled with
+  request 1's valid proof — the router's `verify` returns success, then `fulfill` **traps** on the
+  `request_id` binding (`UnreachableCodeReached`). A proof is bound to exactly one request.
+- **Tamper rejection:** flipping a single journal byte makes `sha256(journal)` differ, so the Groth16
+  verifier **traps**; `fulfill` fails at simulation and the request stays `Accepted`.
 
 ---
 

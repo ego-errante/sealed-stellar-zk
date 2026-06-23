@@ -1,15 +1,18 @@
-# Testnet Deployment (D3 tracer)
+# Testnet Deployment
 
-Network: **Stellar Testnet** (Protocol 27, BN254 host functions live).
-Deployed 2026-06-22. This is the **Slice-0 tracer** deployment (COUNT-only guest). The JobManager
-binds an immutable `image_id`, so it will be **redeployed after the guest is finalized in D4/D6**
-(adding SUM/AVG/… to `cdm-shared::agg` changes the guest ELF → new image_id). DatasetRegistry +
-the verifier stack are stable and can be reused.
+Network: **Stellar Testnet** (Protocol 27, BN254 host functions live). Deployed 2026-06-22.
+
+**Current deployment = post-code-review** (the full-op guest + the security/hardening fixes, including
+the request_id-bound 103-byte journal). The JobManager binds an immutable `image_id`, so any change to
+the guest ELF (`cdm-shared`'s journal/agg) needs a fresh JobManager — redeploy with `scripts/redeploy.sh`.
+The Nethermind verifier stack is unchanged and reused across redeploys. See the addresses below; earlier
+(superseded) deployments are listed for provenance.
 
 ## Identities (testnet, funded via friendbot)
 | Role | Address |
 |------|---------|
-| deployer | `GDNPBI646QXUCQ7XXZDX3SSXC6EHCBBZT5LE6BFZYBLDGGGKQFUQZXDY` |
+| deployer (post-review redeploy) | `GBYZXUSGZF7NTDORNSZDHH7TPZV2MVWUWHHIGTQY7RG2AY3WVEQ5NOGX` |
+| deployer (original) | `GDNPBI646QXUCQ7XXZDX3SSXC6EHCBBZT5LE6BFZYBLDGGGKQFUQZXDY` |
 | owner    | `GA5K6SBXYHPFANBX4OI37AOH7NDQHBPSQUZKY5HOH5BHMJMZGIXADHGV` |
 | buyer    | `GBKWGY3J6YER3J4VQ34LSXNEPR5T5KFA2YUVBR4ZFZTYOSA4S5EJGRID` |
 
@@ -24,15 +27,30 @@ the verifier stack are stable and can be reused.
 - Selector: `73c457ba` (routable). Verifier params VERSION 3.0.0. Timelock min-delay 0.
 
 ## Our contracts
+
+Both pairs below are post-review (full-op, request_id-bound guest, image_id `6290a9cb…`), deployed
+from identical wasm. The **frontend bindings + the pre-baked demo proof point at the pristine pair**
+(request ids start at 1, so `demo/ds4_count_age_gt30_proof.json` fulfills request 1). The **verified
+pair** is the one the end-to-end on-chain check ran against.
+
 | Contract | Address |
 |----------|---------|
-| DatasetRegistry | `CBJ4XTOHF2GRCPLYV57HO2E3N6HTGRNNMVZCTTYJ4G6H5SGVRVO6LYS4` |
-| **JobManager (FINAL, full-op guest)** | **`CAAJSFAR3FSHXVR3JQRWOMCDADRAHL3Y4H45KSEK76WM6FBBGY4CYHAU`** |
-| JobManager (D3 tracer, superseded — old image_id) | `CBLRE67DLXDI4C2MF2Y3IWAB664CBYGYJRFNXYRKYJLXJKSYWAWE7JKV` |
+| **DatasetRegistry (pristine — frontend/demo)** | **`CC5XUULE2ZW3KURTIGEFOAVWY2UKQ4QJNW7L4WEQVSEMOIOEQ2GZEGWG`** |
+| **JobManager (pristine — frontend/demo)** | **`CCYH2WH7ZN4YXQ2WW455OSEVDZHRLJT2RWP5BCCWLWQ2NXOFQDAMW4XE`** |
+| DatasetRegistry (verified instance) | `CD5QW2UNV6LUB6U4WEWX5ZZ5KHWE3X5XWZM3PZNTHG7WC5WWUATTOBF5` |
+| JobManager (verified instance) | `CD5FEIP2FG43VQKJ7E7ODOGYJ3ZAT5CDN6ZKQCOQRVJCQQBIRWJ4NU4I` |
+| DatasetRegistry (pre-review, superseded) | `CBJ4XTOHF2GRCPLYV57HO2E3N6HTGRNNMVZCTTYJ4G6H5SGVRVO6LYS4` |
+| JobManager (pre-review, superseded — old image_id) | `CAAJSFAR3FSHXVR3JQRWOMCDADRAHL3Y4H45KSEK76WM6FBBGY4CYHAU` |
 
-- JobManager constructor: `(registry, router=VerifierRouter, image_id)`.
-- **Guest IMAGE_ID (FINAL, full op set):** `e46e5b3c7043b189beea1751708f51db192258d9957954a18f04a0f8c2763f5f`
-- Superseded Slice-0 COUNT image_id: `f696612489b98d8ac346b52a7f9af64f2701ba81b152d2eb382c813a8a82094a`
+**Verified on-chain (instance `CD5FEIP2…`):** register → submit → accept → `fulfill` (real Groth16
+proof) → `get_result` = `(3, true, false)`. Replay rejection confirmed: an identical request (id 2)
+could not be fulfilled with request 1's proof — `verify` succeeds, then `fulfill` traps on the
+request_id binding.
+
+- JobManager constructor: `(registry, router=VerifierRouter, image_id)`. Redeploy with `scripts/redeploy.sh`.
+- **Guest IMAGE_ID (post-review, 103-byte journal w/ request_id):** `6290a9cb12b55075f93834a58eccfa100b7839157f37df8b3f4eae78060108c3`
+- Superseded image_ids: full-op 95-byte journal `e46e5b3c7043b189beea1751708f51db192258d9957954a18f04a0f8c2763f5f`;
+  Slice-0 COUNT `f696612489b98d8ac346b52a7f9af64f2701ba81b152d2eb382c813a8a82094a`
 - **TS bindings:** `frontend/packages/{dataset-registry,job-manager}/src/index.ts`
   (`stellar contract bindings typescript --network testnet --contract-id <id> --output-dir … --overwrite`).
 
