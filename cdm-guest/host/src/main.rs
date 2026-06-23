@@ -3,7 +3,7 @@
 //!       → prints the Merkle root + schema the owner registers on-chain (DatasetRegistry).
 //!   prove --data rows.csv --params q.json [--out proof.txt]
 //!       → proves the confidential aggregate with Groth16 and writes the fixture the Soroban
-//!         contract consumes: proof.txt = seal_hex \n image_id_hex \n raw_journal_hex (95 bytes;
+//!         contract consumes: proof.txt = seal_hex \n image_id_hex \n raw_journal_hex (103 bytes;
 //!         the contract recomputes sha256(journal) itself, exactly like JobManager.fulfill does).
 use cdm_shared::{decode_journal, merkle};
 use clap::{Parser, Subcommand};
@@ -27,7 +27,7 @@ enum Cmd {
         #[arg(long)]
         data: String,
     },
-    /// Prove a query over a CSV dataset; writes seal + image_id + 95-byte journal to --out.
+    /// Prove a query over a CSV dataset; writes seal + image_id + 103-byte journal to --out.
     Prove {
         #[arg(long)]
         data: String,

@@ -4,7 +4,10 @@ extern crate std;
 use crate::{JobManager, JobManagerClient, QueryParams};
 use dataset_registry::{DatasetRegistry, DatasetRegistryClient};
 use groth16_verifier::RiscZeroGroth16Verifier;
-use soroban_sdk::{testutils::Address as _, vec, Address, Bytes, BytesN, Env, Vec};
+use soroban_sdk::{
+    testutils::{storage::Instance as _, Address as _},
+    vec, Address, Bytes, BytesN, Env, Vec,
+};
 
 struct Fixture {
     seal: Bytes,
@@ -166,6 +169,175 @@ fn cooldown_blocks_rapid_requests() {
     let jm = JobManagerClient::new(&env, &jm_id);
     jm.submit_request(&buyer, &did, &count_params(&env));
     jm.submit_request(&buyer, &did, &count_params(&env)); // within cooldown → panic
+}
+
+/// WEIGHTED_SUM params (op=0) with a weight per column.
+fn weighted_params(env: &Env, weights: std::vec::Vec<u32>) -> QueryParams {
+    let mut w = Vec::new(env);
+    for x in weights {
+        w.push_back(x);
+    }
+    QueryParams {
+        op: 0,
+        target_field: 0,
+        filter_bytecode: Bytes::new(env),
+        consts: Vec::new(env),
+        weights: w,
+    }
+}
+
+#[test]
+#[should_panic]
+fn submit_rejects_target_field_over_u16() {
+    // target_field is u16 in the canonical query hash + guest; a u32 value >65535 would truncate.
+    let env = Env::default();
+    let fx = load_fixture(&env);
+    let (_reg, jm_id, _owner, buyer, did) = deploy(&env, &fx.image_id, &fx.root, 0);
+    let jm = JobManagerClient::new(&env, &jm_id);
+    let mut p = count_params(&env);
+    p.target_field = 70_000;
+    jm.submit_request(&buyer, &did, &p);
+}
+
+#[test]
+#[should_panic]
+fn submit_rejects_weight_over_u16() {
+    // weights are u16 in the hash + guest; >65535 would truncate (and proverlib rejects it).
+    let env = Env::default();
+    let fx = load_fixture(&env);
+    let (_reg, jm_id, _owner, buyer, did) = deploy(&env, &fx.image_id, &fx.root, 0);
+    let jm = JobManagerClient::new(&env, &jm_id);
+    // dataset has 3 columns, so length is valid; the out-of-range value is what's rejected.
+    jm.submit_request(&buyer, &did, &weighted_params(&env, std::vec![1, 2, 70_000]));
+}
+
+#[test]
+#[should_panic]
+fn submit_rejects_weighted_sum_wrong_weights_len() {
+    // WEIGHTED_SUM needs one weight per column; a short vector silently computes a partial sum.
+    let env = Env::default();
+    let fx = load_fixture(&env);
+    let (_reg, jm_id, _owner, buyer, did) = deploy(&env, &fx.image_id, &fx.root, 0);
+    let jm = JobManagerClient::new(&env, &jm_id);
+    jm.submit_request(&buyer, &did, &weighted_params(&env, std::vec![1, 2])); // 2 != num_columns 3
+}
+
+#[test]
+#[should_panic]
+fn submit_rejects_nonweighted_with_weights() {
+    // A non-WEIGHTED_SUM op carrying weights is meaningless and would perturb the bound query_hash.
+    let env = Env::default();
+    let fx = load_fixture(&env);
+    let (_reg, jm_id, _owner, buyer, did) = deploy(&env, &fx.image_id, &fx.root, 0);
+    let jm = JobManagerClient::new(&env, &jm_id);
+    let mut p = count_params(&env); // op=3 COUNT
+    p.weights = { let mut w = Vec::new(&env); w.push_back(1u32); w };
+    jm.submit_request(&buyer, &did, &p);
+}
+
+#[test]
+fn submit_request_bumps_instance_ttl() {
+    // The instance holds Registry/Router/ImageId/NextId; without a TTL bump it archives and every
+    // entrypoint that unwraps them panics permanently. submit_request must extend it.
+    let env = Env::default();
+    let fx = load_fixture(&env);
+    let (_reg, jm_id, _owner, buyer, did) = deploy(&env, &fx.image_id, &fx.root, 0);
+    let jm = JobManagerClient::new(&env, &jm_id);
+    jm.submit_request(&buyer, &did, &count_params(&env));
+    let ttl = env.as_contract(&jm_id, || env.storage().instance().get_ttl());
+    assert!(
+        ttl >= crate::TTL_BUMP - 100,
+        "instance TTL not extended (got {})",
+        ttl
+    );
+}
+
+#[test]
+fn submit_accepts_weighted_sum_correct_len() {
+    let env = Env::default();
+    let fx = load_fixture(&env);
+    let (_reg, jm_id, _owner, buyer, did) = deploy(&env, &fx.image_id, &fx.root, 0);
+    let jm = JobManagerClient::new(&env, &jm_id);
+    let rid = jm.submit_request(&buyer, &did, &weighted_params(&env, std::vec![1, 2, 3]));
+    assert_eq!(rid, 1);
+}
+
+#[test]
+fn get_request_count_tracks_submissions() {
+    // Deterministic enumeration: callers iterate 1..=count instead of probing until an ambiguous trap.
+    let env = Env::default();
+    let fx = load_fixture(&env);
+    let (_reg, jm_id, _owner, buyer, did) = deploy(&env, &fx.image_id, &fx.root, 0);
+    let jm = JobManagerClient::new(&env, &jm_id);
+    assert_eq!(jm.get_request_count(), 0);
+    jm.submit_request(&buyer, &did, &count_params(&env));
+    jm.submit_request(&buyer, &did, &count_params(&env));
+    assert_eq!(jm.get_request_count(), 2);
+}
+
+#[test]
+fn effective_overflow_suppressed_under_k() {
+    // Overflow is only meaningful when the result is released; under k-anon suppression it must be
+    // cleared so a suppressed-but-overflowing aggregate can't leak that a small subset overflowed.
+    assert!(!crate::effective_overflow(true, false));
+    assert!(crate::effective_overflow(true, true));
+    assert!(!crate::effective_overflow(false, true));
+    assert!(!crate::effective_overflow(false, false));
+}
+
+#[test]
+fn rebuild_query_hash_matches_cdm_shared() {
+    // The contract re-derives the query hash with a hand-written encoder; this locks it to
+    // cdm-shared's canonical encoder (which the guest uses) so the two can't silently drift.
+    let env = Env::default();
+    // (op, target_field, k, bytecode, consts, weights)
+    let cases: std::vec::Vec<(u32, u32, u64, std::vec::Vec<u8>, std::vec::Vec<u64>, std::vec::Vec<u32>)> = std::vec![
+        (3, 0, 2, std::vec![], std::vec![], std::vec![]),
+        (1, 2, 2, std::vec![0x01, 0x00, 0x01, 0x02, 0x00, 0x00, 0x10], std::vec![30], std::vec![]),
+        (0, 0, 5, std::vec![], std::vec![], std::vec![1, 2, 3]),
+        (4, 65_535, 7, std::vec![0x10], std::vec![1, 2], std::vec![]),
+    ];
+    for (op, tf, k, bc, consts, weights) in cases {
+        let mut fb = Bytes::new(&env);
+        for b in &bc {
+            fb.push_back(*b);
+        }
+        let mut cv = Vec::new(&env);
+        for c in &consts {
+            cv.push_back(*c);
+        }
+        let mut wv = Vec::new(&env);
+        for w in &weights {
+            wv.push_back(*w);
+        }
+        let params = QueryParams {
+            op,
+            target_field: tf,
+            filter_bytecode: fb,
+            consts: cv,
+            weights: wv,
+        };
+        let got = JobManager::rebuild_query_hash(&env, &params, k);
+        let weights_u16: std::vec::Vec<u16> = weights.iter().map(|w| *w as u16).collect();
+        let expected = cdm_shared::query_hash(op as u8, tf as u16, k, &bc, &consts, &weights_u16);
+        assert_eq!(got.to_array(), expected, "mismatch for op {}", op);
+    }
+}
+
+#[test]
+#[should_panic]
+fn fulfill_rejects_wrong_request_id() {
+    // The fixture proof is bound to request_id 1. Submitting an identical second request (id 2) and
+    // trying to fulfill IT with the same proof must fail the request_id binding — i.e. a valid proof
+    // for one request can't be replayed to fulfill a different (otherwise identical) request.
+    let env = Env::default();
+    let fx = load_fixture(&env);
+    let (_reg, jm_id, owner, buyer, did) = deploy(&env, &fx.image_id, &fx.root, 0);
+    let jm = JobManagerClient::new(&env, &jm_id);
+    let _rid1 = jm.submit_request(&buyer, &did, &count_params(&env)); // id 1 — what the proof binds to
+    let rid2 = jm.submit_request(&buyer, &did, &count_params(&env)); // id 2 — identical params
+    jm.accept_request(&owner, &rid2);
+    jm.fulfill(&owner, &rid2, &fx.seal, &fx.journal); // journal.request_id == 1 != 2 → panic
 }
 
 #[test]

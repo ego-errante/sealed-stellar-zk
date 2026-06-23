@@ -2,7 +2,26 @@
 //! Kept dependency-light (no risc0/methods) so it's fast to unit-test. The CLI binary (`host`)
 //! and the prover-service both build on these functions.
 use cdm_shared::QueryInput;
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
+
+/// A u64 that deserializes from either a JSON number or a decimal string. The frontend sends u64
+/// consts as strings to avoid JS-number rounding above 2^53; the CLI may still send plain numbers.
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum U64OrStr {
+    Num(u64),
+    Str(String),
+}
+
+fn de_u64_vec<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<u64>, D::Error> {
+    Vec::<U64OrStr>::deserialize(d)?
+        .into_iter()
+        .map(|x| match x {
+            U64OrStr::Num(n) => Ok(n),
+            U64OrStr::Str(s) => s.parse::<u64>().map_err(serde::de::Error::custom),
+        })
+        .collect()
+}
 
 /// Parse a CSV of unsigned integers — one row per non-blank line, comma-separated `u64` cells.
 /// No header. Every row must have the same number of columns. Whitespace around cells is trimmed.
@@ -48,10 +67,13 @@ pub struct ProveParams {
     pub k: u64,
     #[serde(default)]
     pub filter_bytecode: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "de_u64_vec")]
     pub consts: Vec<u64>,
     #[serde(default)]
     pub weights: Vec<u16>,
+    /// On-chain request id this proof is for; echoed into the journal and checked by fulfill.
+    #[serde(default)]
+    pub request_id: u64,
 }
 
 impl ProveParams {
@@ -76,6 +98,7 @@ pub fn to_query_input(rows: Vec<Vec<u64>>, params: &ProveParams) -> Result<Query
         filter_bytecode,
         consts: params.consts.clone(),
         weights: params.weights.clone(),
+        request_id: params.request_id,
     })
 }
 
@@ -115,7 +138,7 @@ mod tests {
     #[test]
     fn params_from_json_full() {
         let p = ProveParams::from_json(
-            r#"{"op":1,"target_field":2,"k":3,"filter_bytecode":"01000102000010","consts":[30],"weights":[1,2,3]}"#,
+            r#"{"op":1,"target_field":2,"k":3,"filter_bytecode":"01000102000010","consts":[30],"weights":[1,2,3],"request_id":7}"#,
         )
         .unwrap();
         assert_eq!(
@@ -127,8 +150,33 @@ mod tests {
                 filter_bytecode: "01000102000010".into(),
                 consts: vec![30],
                 weights: vec![1, 2, 3],
+                request_id: 7,
             }
         );
+    }
+
+    #[test]
+    fn request_id_defaults_to_zero_and_flows_to_query_input() {
+        let p = ProveParams::from_json(r#"{"op":3,"target_field":0,"k":1}"#).unwrap();
+        assert_eq!(p.request_id, 0); // absent → 0
+        let p2 = ProveParams::from_json(r#"{"op":3,"target_field":0,"k":1,"request_id":42}"#).unwrap();
+        let qi = to_query_input(vec![vec![1]], &p2).unwrap();
+        assert_eq!(qi.request_id, 42);
+    }
+
+    #[test]
+    fn params_accepts_string_consts_for_large_u64() {
+        // The frontend sends u64 consts as decimal strings to avoid JS-number rounding above 2^53.
+        let big = u64::MAX; // 18446744073709551615 — not representable as an f64/JS number
+        let json = format!(r#"{{"op":1,"target_field":0,"k":1,"consts":["{}"]}}"#, big);
+        let p = ProveParams::from_json(&json).unwrap();
+        assert_eq!(p.consts, vec![big]);
+    }
+
+    #[test]
+    fn params_still_accepts_numeric_consts() {
+        let p = ProveParams::from_json(r#"{"op":1,"target_field":0,"k":1,"consts":[30]}"#).unwrap();
+        assert_eq!(p.consts, vec![30]);
     }
 
     #[test]

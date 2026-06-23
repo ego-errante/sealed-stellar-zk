@@ -117,7 +117,10 @@ pub fn run(
     };
 
     let k_met = count >= k;
-    let result = if k_met { result_raw } else { 0 };
+    // When k-anonymity suppresses the result, suppress the overflow flag too: otherwise a hidden
+    // matching subset (<k rows) that overflowed would still signal overflow=true, leaking its
+    // existence through a channel suppression was meant to close.
+    let (result, overflow) = if k_met { (result_raw, overflow) } else { (0, false) };
     Ok(AggResult {
         count,
         result,
@@ -256,6 +259,18 @@ mod tests {
         assert_eq!(r.count, 2);
         assert!(r.overflow);
         assert_eq!(r.result, 4); // MAX.wrapping_add(5)
+    }
+
+    #[test]
+    fn overflow_suppressed_when_k_not_met() {
+        // matching subset overflows u64 but count < k → result AND overflow are both suppressed,
+        // so a k-suppressed aggregate can't leak that a small overflowing subset exists.
+        let big = vec![vec![u64::MAX], vec![5u64]];
+        let r = run(OP_SUM, 0, 3, &[], &[], &[], &big).unwrap(); // k=3 > count 2
+        assert_eq!(r.count, 2);
+        assert!(!r.k_met);
+        assert_eq!(r.result, 0);
+        assert!(!r.overflow, "overflow must be cleared under k-anon suppression");
     }
 
     #[test]

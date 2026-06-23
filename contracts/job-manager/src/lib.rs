@@ -12,7 +12,7 @@ mod registry;
 const DAY_IN_LEDGERS: u32 = 17_280;
 const TTL_BUMP: u32 = 90 * DAY_IN_LEDGERS;
 const TTL_THRESHOLD: u32 = TTL_BUMP - DAY_IN_LEDGERS;
-const JOURNAL_LEN: u32 = 95;
+const JOURNAL_LEN: u32 = 103;
 const MAX_FILTER_BYTECODE: u32 = 512;
 
 #[contracttype]
@@ -67,6 +67,15 @@ struct JournalView {
     result: u64,
     k_met: bool,
     overflow: bool,
+    request_id: u64,
+}
+
+/// Overflow is only meaningful when the result is released. Under k-anonymity suppression the
+/// result is zeroed, so the overflow flag must be cleared too — otherwise a suppressed aggregate
+/// whose hidden matching subset overflowed would still signal `overflow=true`, leaking that a small
+/// (<k) matching subset exists. Defense-in-depth: the guest already clears it, this enforces it on store.
+fn effective_overflow(overflow: bool, k_met: bool) -> bool {
+    overflow && k_met
 }
 
 #[contract]
@@ -80,11 +89,13 @@ impl JobManager {
         s.set(&DataKey::Router, &router);
         s.set(&DataKey::ImageId, &image_id);
         s.set(&DataKey::NextId, &1u64);
+        s.extend_ttl(TTL_THRESHOLD, TTL_BUMP);
     }
 
     /// Buyer submits a query. Enforces per-(buyer,dataset) cooldown.
     pub fn submit_request(env: Env, buyer: Address, dataset_id: u64, params: QueryParams) -> u64 {
         buyer.require_auth();
+        Self::bump_instance(&env);
         assert!(params.op <= 5, "bad op");
         assert!(
             params.filter_bytecode.len() <= MAX_FILTER_BYTECODE,
@@ -92,6 +103,23 @@ impl JobManager {
         );
 
         let ds = DatasetRegistryClient::new(&env, &Self::registry(&env)).get_dataset(&dataset_id);
+
+        // target_field and weights are folded to u16 in the canonical query hash + guest; reject
+        // u32 values that would silently truncate (and that proverlib's Vec<u16> would reject).
+        assert!(params.target_field <= u16::MAX as u32, "target_field out of u16 range");
+        for w in params.weights.iter() {
+            assert!(w <= u16::MAX as u32, "weight out of u16 range");
+        }
+        // weights are only meaningful for WEIGHTED_SUM (op 0), where there is one per column.
+        // Validating here makes a request either fulfillable or rejected — never silently partial.
+        if params.op == 0 {
+            assert!(
+                params.weights.len() == ds.num_columns,
+                "weights length must equal num_columns"
+            );
+        } else {
+            assert!(params.weights.len() == 0, "weights only valid for WEIGHTED_SUM");
+        }
 
         // cooldown
         let now = env.ledger().timestamp();
@@ -123,6 +151,7 @@ impl JobManager {
 
     pub fn accept_request(env: Env, owner: Address, request_id: u64) {
         owner.require_auth();
+        Self::bump_instance(&env);
         let mut req = Self::read_request(&env, request_id);
         assert!(req.status == RequestStatus::Pending, "not pending");
         let ds = DatasetRegistryClient::new(&env, &Self::registry(&env)).get_dataset(&req.dataset_id);
@@ -133,6 +162,7 @@ impl JobManager {
 
     pub fn reject_request(env: Env, owner: Address, request_id: u64) {
         owner.require_auth();
+        Self::bump_instance(&env);
         let mut req = Self::read_request(&env, request_id);
         assert!(req.status == RequestStatus::Pending, "not pending");
         let ds = DatasetRegistryClient::new(&env, &Self::registry(&env)).get_dataset(&req.dataset_id);
@@ -144,6 +174,7 @@ impl JobManager {
     /// Owner fulfills an accepted request with a Groth16 proof. Verifies + binds before storing.
     pub fn fulfill(env: Env, owner: Address, request_id: u64, seal: Bytes, journal: Bytes) {
         owner.require_auth();
+        Self::bump_instance(&env);
         let mut req = Self::read_request(&env, request_id);
         assert!(req.status == RequestStatus::Accepted, "request not accepted");
         let ds = DatasetRegistryClient::new(&env, &Self::registry(&env)).get_dataset(&req.dataset_id);
@@ -161,19 +192,32 @@ impl JobManager {
         assert!(jv.num_columns == ds.num_columns, "num_columns mismatch");
         assert!(jv.op as u32 == req.params.op, "op mismatch");
         assert!(jv.k == ds.k, "k mismatch");
+        // Bind the proof to THIS request: a proof generated for a different (even identical) request
+        // can't be replayed here.
+        assert!(jv.request_id == request_id, "request_id mismatch");
         let expected_qh = Self::rebuild_query_hash(&env, &req.params, ds.k);
         assert!(jv.query_hash == expected_qh, "query_hash mismatch");
 
         // (d) store the verified result
         req.result = jv.result;
         req.k_met = jv.k_met;
-        req.overflow = jv.overflow;
+        req.overflow = effective_overflow(jv.overflow, jv.k_met);
         req.status = RequestStatus::Completed;
         Self::write_request(&env, request_id, &req);
     }
 
     pub fn get_request(env: Env, request_id: u64) -> Request {
         Self::read_request(&env, request_id)
+    }
+
+    /// Number of requests submitted so far. Request ids are dense in `1..=get_request_count()`,
+    /// so callers enumerate deterministically instead of probing until a not-found trap.
+    pub fn get_request_count(env: Env) -> u64 {
+        env.storage()
+            .instance()
+            .get::<_, u64>(&DataKey::NextId)
+            .unwrap_or(1)
+            - 1
     }
 
     pub fn get_result(env: Env, request_id: u64) -> (u64, bool, bool) {
@@ -185,6 +229,13 @@ impl JobManager {
 
 // ---- internals ----
 impl JobManager {
+    /// Keep the instance entries (Registry/Router/ImageId/NextId) alive. Without this they archive
+    /// after the default TTL and every entrypoint that reads them panics permanently (a brick), and
+    /// an archived NextId would silently restart request ids at 1.
+    fn bump_instance(env: &Env) {
+        env.storage().instance().extend_ttl(TTL_THRESHOLD, TTL_BUMP);
+    }
+
     fn registry(env: &Env) -> Address {
         env.storage().instance().get(&DataKey::Registry).unwrap()
     }
@@ -225,7 +276,7 @@ impl JobManager {
 
     fn decode_journal(env: &Env, journal: &Bytes) -> JournalView {
         assert!(journal.len() == JOURNAL_LEN, "bad journal length");
-        let mut b = [0u8; 95];
+        let mut b = [0u8; 103];
         journal.copy_into_slice(&mut b);
         let root: [u8; 32] = b[0..32].try_into().unwrap();
         let qh: [u8; 32] = b[32..64].try_into().unwrap();
@@ -239,6 +290,7 @@ impl JobManager {
             result: u64::from_le_bytes(b[85..93].try_into().unwrap()),
             k_met: b[93] != 0,
             overflow: b[94] != 0,
+            request_id: u64::from_le_bytes(b[95..103].try_into().unwrap()),
         }
     }
 }

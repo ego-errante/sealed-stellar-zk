@@ -91,11 +91,13 @@ pub fn query_hash(
     .into()
 }
 
-pub const JOURNAL_LEN: usize = 95;
+pub const JOURNAL_LEN: usize = 103;
 
 /// The guest's public output. Byte layout (offsets):
 /// root 0..32 | query_hash 32..64 | op 64 | num_columns 65..69 (u32 LE) |
-/// k 69..77 | count 77..85 | result 85..93 (all u64 LE) | k_met 93 | overflow 94
+/// k 69..77 | count 77..85 | result 85..93 (all u64 LE) | k_met 93 | overflow 94 |
+/// request_id 95..103 (u64 LE) — binds the proof to one specific request so a valid proof can't be
+/// replayed to fulfill a different (otherwise identical) request.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Journal {
     pub root: [u8; 32],
@@ -107,6 +109,7 @@ pub struct Journal {
     pub result: u64,
     pub k_met: bool,
     pub overflow: bool,
+    pub request_id: u64,
 }
 
 pub fn encode_journal(j: &Journal) -> [u8; JOURNAL_LEN] {
@@ -120,6 +123,7 @@ pub fn encode_journal(j: &Journal) -> [u8; JOURNAL_LEN] {
     b[85..93].copy_from_slice(&j.result.to_le_bytes());
     b[93] = j.k_met as u8;
     b[94] = j.overflow as u8;
+    b[95..103].copy_from_slice(&j.request_id.to_le_bytes());
     b
 }
 
@@ -141,6 +145,7 @@ pub fn decode_journal(bytes: &[u8]) -> Option<Journal> {
         result: u64::from_le_bytes(bytes[85..93].try_into().ok()?),
         k_met: bytes[93] != 0,
         overflow: bytes[94] != 0,
+        request_id: u64::from_le_bytes(bytes[95..103].try_into().ok()?),
     })
 }
 
@@ -154,6 +159,9 @@ pub struct QueryInput {
     pub filter_bytecode: Vec<u8>,
     pub consts: Vec<u64>,
     pub weights: Vec<u16>,
+    /// The on-chain request id this proof is being generated for; echoed into the journal and
+    /// checked by `JobManager.fulfill` so the proof binds to exactly this request.
+    pub request_id: u64,
 }
 
 /// The full guest computation: Merkle root + filtered aggregate + query_hash → Journal.
@@ -188,6 +196,7 @@ pub fn compute_journal(input: &QueryInput) -> Result<Journal, agg::AggError> {
         result: a.result,
         k_met: a.k_met,
         overflow: a.overflow,
+        request_id: input.request_id,
     })
 }
 
@@ -259,6 +268,7 @@ mod tests {
             result: 42,
             k_met: true,
             overflow: false,
+            request_id: 9,
         };
         let enc = encode_journal(&j);
         assert_eq!(enc.len(), JOURNAL_LEN);
@@ -267,13 +277,15 @@ mod tests {
         assert_eq!(&enc[69..77], &2u64.to_le_bytes()); // k
         assert_eq!(enc[93], 1); // k_met
         assert_eq!(enc[94], 0); // overflow
+        assert_eq!(&enc[95..103], &9u64.to_le_bytes()); // request_id
         assert_eq!(decode_journal(&enc), Some(j));
     }
 
     #[test]
     fn decode_rejects_wrong_length() {
-        assert_eq!(decode_journal(&[0u8; 94]), None);
-        assert_eq!(decode_journal(&[0u8; 96]), None);
+        assert_eq!(decode_journal(&[0u8; 102]), None);
+        assert_eq!(decode_journal(&[0u8; 104]), None);
+        assert_eq!(decode_journal(&[0u8; 95]), None); // the old layout no longer decodes
     }
 
     #[test]
@@ -299,6 +311,7 @@ mod tests {
             filter_bytecode: bc.clone(),
             consts: consts.clone(),
             weights: vec![],
+            request_id: 7,
         };
         let j = compute_journal(&input).unwrap();
         assert_eq!(
@@ -313,6 +326,7 @@ mod tests {
         assert_eq!(j.result, 3);
         assert!(j.k_met);
         assert!(!j.overflow);
+        assert_eq!(j.request_id, 7); // echoed straight from the input, bound on-chain by fulfill
         assert_eq!(decode_journal(&encode_journal(&j)), Some(j));
     }
 
@@ -338,6 +352,7 @@ mod tests {
             filter_bytecode: bc,
             consts: vec![30u64],
             weights: vec![],
+            request_id: 1,
         }
     }
 

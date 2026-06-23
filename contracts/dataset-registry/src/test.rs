@@ -68,3 +68,12 @@ fn rejects_zero_root() {
     let owner = Address::generate(&env);
     client.register_dataset(&owner, &root(&env, 0), &2u32, &3u64, &1u64, &0u32);
 }
+
+#[test]
+#[should_panic]
+fn rejects_zero_k() {
+    // k=0 would make k_met = (count >= 0) always true, disabling k-anonymity entirely.
+    let (env, client) = setup();
+    let owner = Address::generate(&env);
+    client.register_dataset(&owner, &root(&env, 1), &2u32, &3u64, &0u64, &0u32);
+}

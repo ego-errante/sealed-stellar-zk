@@ -17,4 +17,6 @@ soroban-sdk = { version = "25.1.0", features = ["testutils"] }
 # cross-contract get_dataset call. Production wasm uses the client-only `registry` module instead.
 dataset-registry = { path = "../dataset-registry" }
 groth16-verifier = { path = "../../derisk/stellar-risc0-verifier/contracts/groth16-verifier" }
+# Cross-impl test only: assert rebuild_query_hash matches cdm-shared's canonical encoder byte-for-byte.
+cdm-shared = { path = "../cdm-shared" }
 hex = "0.4"

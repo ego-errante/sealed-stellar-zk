@@ -46,6 +46,8 @@ impl DatasetRegistry {
         owner.require_auth();
         assert!(row_count > 0, "row_count must be > 0");
         assert!(num_columns > 0, "num_columns must be > 0");
+        // k must be >= 1: k=0 makes k_met = (count >= 0) always true, voiding k-anonymity.
+        assert!(k >= 1, "k must be >= 1");
         assert!(
             merkle_root != BytesN::from_array(&env, &[0u8; 32]),
             "merkle_root must be non-zero"
