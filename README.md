@@ -196,7 +196,7 @@ proof point at this pristine pair — request ids start at 1, so the proof in `d
 ## Repository layout
 
 ```
-stellar-zk-cdm/
+sealed-stellar-zk/
 ├─ contracts/                 Soroban contracts (Rust, no_std) — cargo workspace
 │  ├─ cdm-shared/             merkle · filter VM · aggregates · 95-byte journal · query_hash (41 tests)
 │  ├─ dataset-registry/       register_dataset / get_dataset
