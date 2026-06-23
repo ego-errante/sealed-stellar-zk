@@ -35,6 +35,33 @@ const body = (req) =>
     req.on('error', reject);
   });
 
+// A client error that maps to an HTTP 4xx instead of the catch-all 500.
+class HttpError extends Error {
+  constructor(status, message) {
+    super(message);
+    this.status = status;
+  }
+}
+const badRequest = (m) => new HttpError(400, m);
+
+function parseBody(raw) {
+  let obj;
+  try {
+    obj = JSON.parse(raw);
+  } catch {
+    throw badRequest('request body is not valid JSON');
+  }
+  if (obj === null || typeof obj !== 'object') throw badRequest('request body must be a JSON object');
+  return obj;
+}
+
+function requireCsv(obj) {
+  if (typeof obj.csv !== 'string' || obj.csv.trim() === '') {
+    throw badRequest('"csv" must be a non-empty string');
+  }
+  return obj.csv;
+}
+
 // stage a file into the shared mount; returns the path (identical on host and container).
 function stage(name, contents) {
   const dir = mkdtempSync(join(WORKDIR, 'job-'));
@@ -67,7 +94,7 @@ const server = http.createServer(async (req, res) => {
   }
   try {
     if (req.method === 'POST' && req.url === '/register') {
-      const { csv } = JSON.parse(await body(req));
+      const csv = requireCsv(parseBody(await body(req)));
       const { p } = stage('rows.csv', csv);
       const out = parseKV(await run([BIN, 'register', '--data', p], 60_000));
       return json(200, {
@@ -77,18 +104,27 @@ const server = http.createServer(async (req, res) => {
       });
     }
     if (req.method === 'POST' && req.url === '/prove') {
-      const { csv, params } = JSON.parse(await body(req));
+      const parsed = parseBody(await body(req));
+      const csv = requireCsv(parsed);
+      const { params } = parsed;
+      if (params === null || typeof params !== 'object') throw badRequest('"params" must be an object');
       const { dir, p } = stage('rows.csv', csv);
       const paramsPath = join(dir, 'params.json');
       writeFileSync(paramsPath, JSON.stringify(params));
       const outPath = join(dir, 'proof.txt');
       await run([BIN, 'prove', '--data', p, '--params', paramsPath, '--out', outPath], 600_000);
-      const [seal, image_id, journal] = readFileSync(outPath, 'utf8').trim().split('\n');
+      // The CLI writes exactly three lines: seal, image_id, journal. Validate before trusting the
+      // split, so a truncated/garbled run becomes a clear 500 instead of returning undefined fields.
+      const lines = readFileSync(outPath, 'utf8').trim().split('\n');
+      if (lines.length !== 3 || lines.some((l) => l.trim() === '')) {
+        throw new Error(`prover output malformed: expected 3 non-empty lines, got ${lines.length}`);
+      }
+      const [seal, image_id, journal] = lines;
       return json(200, { seal, image_id, journal });
     }
     json(404, { error: 'not found' });
   } catch (e) {
-    json(500, { error: String(e.message || e) });
+    json(e instanceof HttpError ? e.status : 500, { error: String(e.message || e) });
   }
 });
 
