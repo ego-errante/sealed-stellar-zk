@@ -107,8 +107,12 @@ export function SubmitRequestForm({
       )}
 
       <Button onClick={onSubmit} disabled={submit.isPending} className="w-full">
-        {submit.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-        <Send className="mr-2 h-4 w-4" /> Submit request
+        {submit.isPending ? (
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        ) : (
+          <Send className="mr-2 h-4 w-4" />
+        )}
+        Submit request
       </Button>
     </div>
   );

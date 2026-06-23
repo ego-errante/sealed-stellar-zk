@@ -127,7 +127,7 @@ export function RegisterDatasetModal() {
             </Button>
           ) : (
             <div className="rounded-md border border-border bg-card p-3 font-mono text-xs">
-              <div className="truncate text-muted-foreground">
+              <div className="break-all text-muted-foreground">
                 root <span className="text-foreground">{meta.merkle_root}</span>
               </div>
               <div className="mt-1 text-muted-foreground">

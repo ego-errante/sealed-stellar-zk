@@ -111,10 +111,12 @@ export function FulfillPanel({
           onClick={onManualSubmit}
           disabled={!seal.trim() || !journal.trim() || fulfill.isPending}
         >
-          {fulfill.isPending && !proving && (
+          {fulfill.isPending && !proving ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <ShieldCheck className="mr-2 h-4 w-4" />
           )}
-          <ShieldCheck className="mr-2 h-4 w-4" /> Submit proof
+          Submit proof
         </Button>
       </div>
 
