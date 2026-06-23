@@ -51,12 +51,13 @@ major, either pin to 3.0.x OR regen `parameters.json` for the new version and re
        risc0_router 19K, emergency_stop 20K, timelock 37K, mock_verifier 11K). Deploy path confirmed.
        GOTCHA: verifier's rust-toolchain.toml pins `channel="stable"` (a separate toolchain from the image
        default 1.96.0) — wasm targets (wasm32-unknown-unknown + wasm32v1-none) must be added to BOTH.
-2. [x] **Guest prototype** ✅ (2026-06-21) — `derisk/cdm-guest`: guest computes Merkle root (sha256) + COUNT
-       (`row[col] > threshold`) + k-anonymity over a 5-row dataset; commits {root, col, threshold, k, count,
-       k_met}. Real Groth16 proof generated (seal 260 bytes), `receipt.verify()` OK, journal decoded
-       correctly (count=3, k_met=true). proof.txt = seal/image_id/journal_digest.
-3. [x] **Version match + E2E through the Stellar verifier** ✅ (2026-06-21) — added `test_verify_cdm_query_proof`
-       to the verifier; it loads our proof.txt and calls the real `RiscZeroGroth16Verifier.verify()` → PASSES.
+2. [x] **Guest prototype** ✅ (2026-06-21) — `derisk/cdm-guest` (since removed; superseded by the production
+       guest at `cdm-guest/`): prototype guest computed Merkle root (sha256) + COUNT (`row[col] > threshold`)
+       + k-anonymity over a 5-row dataset; committed {root, col, threshold, k, count, k_met}. Real Groth16
+       proof generated (seal 260 bytes), `receipt.verify()` OK, journal decoded correctly (count=3, k_met=true).
+3. [x] **Version match + E2E through the Stellar verifier** ✅ (2026-06-21) — a `test_verify_cdm_query_proof`
+       smoke test (since reverted) loaded the prototype proof.txt and called the real
+       `RiscZeroGroth16Verifier.verify()` → PASSED, confirming version compatibility end-to-end.
        Our seal selector `73c457ba` == verifier TEST_SEAL's first 4 bytes; build.rs confirms VERSION 3.0.0.
        So RISC Zero 3.0.5 toolchain ↔ verifier 3.0.0 params are compatible end-to-end.
 
