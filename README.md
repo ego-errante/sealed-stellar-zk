@@ -133,6 +133,13 @@ matters.
 - **The buyer / the chain are fully protected.** They never see raw rows, and they cannot be lied to:
   the proof + binding guarantee the result is the honest aggregate of the committed dataset under the
   agreed query. This part is trustless.
+- **Column _meaning_ is out-of-band — the proof attests computation, not labels.** Datasets are
+  committed and queried by column **index** (the UI shows `Field 0/1/2`); nothing on-chain names the
+  columns (`Dataset` carries only `num_columns`, a count). The proof guarantees *"this COUNT used
+  column index 1 over rows hashing to the committed root with the agreed filter"* — **not** that index
+  1 is really "age". A buyer learns the schema from the owner's listing / data dictionary and trusts it
+  the way they'd trust any column header; a dishonest owner could mislabel a column and still produce a
+  valid proof. The fix is named in future work.
 - **The prover sits inside the owner's trust boundary — by design.** The owner owns the rows; ZK
   exists so a *verifiable aggregate* reaches the buyer **without the rows**. So the prover runs
   **owner-local**:
@@ -154,6 +161,9 @@ matters.
   the one remaining trust gap and enabling a true third-party proving service.
 - **Poseidon Merkle commitments** — we use sha256 (simple, in-circuit, proven). Poseidon would cut
   zkVM cycles and proving time substantially.
+- **Schema commitment** — hash the column names/types and fold it into the Merkle root (or store it as
+  a dataset field) and into `query_hash`, so a label like "age = index 1" is bound by the same
+  commitment the proof already covers. Closes the out-of-band-labeling gap noted in the trust model.
 
 ---
 
@@ -253,6 +263,9 @@ Per the brief's "say what's unfinished" — here's the straight version:
   WEIGHTED_SUM), and the web UI driving all of it. Tamper is rejected on-chain.
 - ⚠️ **Owner-local prover, not a trustless third party** — see [Trust model](#trust-model--privacy-read-this).
   WASM/TEE proving is named future work, not built.
+- ⚠️ **Column semantics are out-of-band** — datasets are queried by column *index*, not name; the proof
+  attests the computation, not that a column's label is truthful. Schema commitment is named future work
+  (see [Trust model](#trust-model--privacy-read-this)).
 - ⚠️ **No payments/escrow** — the marketplace settles a *verified result*, not money. Escrow against a
   fulfilled proof is a natural next step, deliberately out of the 8-day MVP.
 - ⚠️ **sha256 Merkle, not Poseidon** — simpler and fully proven; Poseidon would be cheaper to prove.
