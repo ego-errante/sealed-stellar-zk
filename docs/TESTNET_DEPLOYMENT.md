@@ -28,15 +28,20 @@ The Nethermind verifier stack is unchanged and reused across redeploys. See the 
 
 ## Our contracts
 
-Both pairs below are post-review (full-op, request_id-bound guest, image_id `6290a9cb…`), deployed
-from identical wasm. The **frontend bindings + the pre-baked demo proof point at the pristine pair**
-(request ids start at 1, so `demo/ds4_count_age_gt30_proof.json` fulfills request 1). The **verified
-pair** is the one the end-to-end on-chain check ran against.
+All pairs below are post-review (full-op, request_id-bound guest, image_id `6290a9cb…`), deployed
+from identical wasm. The **frontend bindings + the pre-baked demo proof point at the current pristine
+pair** (`CBP33…`/`CDN2…` — request ids start at 1, so `demo/ds4_count_age_gt30_proof.json` fulfills
+request 1). The **dry-run #1 pair** (`CC5X…`/`CCYH…`) passed a full real-Freighter two-profile run on
+2026-06-23 (`get_result(1) = [3, true, false]`), which consumed its request id 1 — hence the fresh
+pristine pair for the demo recording. The **verified pair** is the one the original CLI end-to-end
+on-chain check ran against.
 
 | Contract | Address |
 |----------|---------|
-| **DatasetRegistry (pristine — frontend/demo)** | **`CC5XUULE2ZW3KURTIGEFOAVWY2UKQ4QJNW7L4WEQVSEMOIOEQ2GZEGWG`** |
-| **JobManager (pristine — frontend/demo)** | **`CCYH2WH7ZN4YXQ2WW455OSEVDZHRLJT2RWP5BCCWLWQ2NXOFQDAMW4XE`** |
+| **DatasetRegistry (pristine — frontend/demo)** | **`CBP33TITYLCTTDAMYQMU4MYFMWMLH2YQ67LBBZJMXVD4YZ4TQQB2WH6K`** |
+| **JobManager (pristine — frontend/demo)** | **`CDN2ZJ56ULNITYQJMTRGYL2XVX4MHXZNRRXE73ZSQCF2FL4K3ZNJA2DR`** |
+| DatasetRegistry (dry-run #1, superseded) | `CC5XUULE2ZW3KURTIGEFOAVWY2UKQ4QJNW7L4WEQVSEMOIOEQ2GZEGWG` |
+| JobManager (dry-run #1 — request 1 consumed) | `CCYH2WH7ZN4YXQ2WW455OSEVDZHRLJT2RWP5BCCWLWQ2NXOFQDAMW4XE` |
 | DatasetRegistry (verified instance) | `CD5QW2UNV6LUB6U4WEWX5ZZ5KHWE3X5XWZM3PZNTHG7WC5WWUATTOBF5` |
 | JobManager (verified instance) | `CD5FEIP2FG43VQKJ7E7ODOGYJ3ZAT5CDN6ZKQCOQRVJCQQBIRWJ4NU4I` |
 | DatasetRegistry (pre-review, superseded) | `CBJ4XTOHF2GRCPLYV57HO2E3N6HTGRNNMVZCTTYJ4G6H5SGVRVO6LYS4` |

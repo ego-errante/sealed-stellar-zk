@@ -159,13 +159,13 @@ matters.
 
 ## Live on testnet
 
-Network: **Stellar Testnet**, Protocol 27. Deployed 2026-06-22 (the front end + the pre-baked demo
+Network: **Stellar Testnet**, Protocol 27. Deployed 2026-06-23 (the front end + the pre-baked demo
 proof point at this pristine pair — request ids start at 1, so the proof in `demo/` fulfills request 1).
 
 | Contract | Address |
 |----------|---------|
-| **DatasetRegistry** | `CC5XUULE2ZW3KURTIGEFOAVWY2UKQ4QJNW7L4WEQVSEMOIOEQ2GZEGWG` |
-| **JobManager** | `CCYH2WH7ZN4YXQ2WW455OSEVDZHRLJT2RWP5BCCWLWQ2NXOFQDAMW4XE` |
+| **DatasetRegistry** | `CBP33TITYLCTTDAMYQMU4MYFMWMLH2YQ67LBBZJMXVD4YZ4TQQB2WH6K` |
+| **JobManager** | `CDN2ZJ56ULNITYQJMTRGYL2XVX4MHXZNRRXE73ZSQCF2FL4K3ZNJA2DR` |
 | VerifierRouter (Nethermind) | `CBRBVQP2GOW6FONS4S4Q6BEC53BAJJGWOJRXC4KNDCFJ6WG673MQX633` |
 | Groth16Verifier (Nethermind) | `CALVN6PA6YIGSIKI6T7ZZAP2IW7UF3N4MLNVMOU2DWQ7HUYFXLMBDIX4` |
 
