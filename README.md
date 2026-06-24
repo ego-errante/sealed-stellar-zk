@@ -9,7 +9,7 @@
 Built for **[Stellar Hacks: Real-World ZK](https://dorahacks.io/hackathon/stellar-hacks-zk)** (Stellar
 Development Foundation). Live on **Stellar testnet** (Protocol 27, BN254 host functions).
 
-- 🎥 **Demo video:** _<add link>_
+- 🎥 **Demo video:** https://youtu.be/HBnWqFeOLuM
 - 🌐 **Network:** Stellar Testnet · 📜 **Contracts:** [see addresses](#live-on-testnet)
 - 🔐 **ZK stack:** RISC Zero zkVM 3.0.5 → Groth16 → [Nethermind Soroban verifier](https://github.com/NethermindEth/stellar-risc0-verifier)
 
