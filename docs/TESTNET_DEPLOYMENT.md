@@ -30,16 +30,24 @@ The Nethermind verifier stack is unchanged and reused across redeploys. See the 
 
 All pairs below are post-review (full-op, request_id-bound guest, image_id `6290a9cb…`), deployed
 from identical wasm. The **frontend bindings + the pre-baked demo proof point at the current pristine
-pair** (`CBP33…`/`CDN2…` — request ids start at 1, so `demo/ds4_count_age_gt30_proof.json` fulfills
-request 1). The **dry-run #1 pair** (`CC5X…`/`CCYH…`) passed a full real-Freighter two-profile run on
-2026-06-23 (`get_result(1) = [3, true, false]`), which consumed its request id 1 — hence the fresh
-pristine pair for the demo recording. The **verified pair** is the one the original CLI end-to-end
-on-chain check ran against.
+pair** (`CBWI…`/`CBBS…`, deployed 2026-06-24 — request ids start at 1, so
+`demo/ds4_count_age_gt30_proof.json` fulfills request 1). Each prior pristine pair was retired once its
+request id 1 was consumed by a real-Freighter dry run: `CCUE…`/`CDFH…` (dry-run #4); `CC3J…`/`CDVD…`
+(dry-run #3 — request 1 was submitted with the wrong filter const `[0]` instead of `[30]`, so its
+`query_hash` could never match the pre-baked proof); `CBP33…`/`CDN2…` (dry-run #2); `CC5X…`/`CCYH…`
+(dry-run #1, `get_result(1) = [3, true, false]`, 2026-06-23). The **verified pair** is the one the
+original CLI end-to-end on-chain check ran against.
 
 | Contract | Address |
 |----------|---------|
-| **DatasetRegistry (pristine — frontend/demo)** | **`CBP33TITYLCTTDAMYQMU4MYFMWMLH2YQ67LBBZJMXVD4YZ4TQQB2WH6K`** |
-| **JobManager (pristine — frontend/demo)** | **`CDN2ZJ56ULNITYQJMTRGYL2XVX4MHXZNRRXE73ZSQCF2FL4K3ZNJA2DR`** |
+| **DatasetRegistry (pristine — frontend/demo)** | **`CBWIVBE7OCEJ7DNTLPP7FWBUN2PQXABZHBTSHIXNU6Z7Y6EV4AXBLEIG`** |
+| **JobManager (pristine — frontend/demo)** | **`CBBSS7HEHQQ3ERKV6W63MWBGHC4BBBDYQQMWARO2AFBOG3M6XMJQWQR5`** |
+| DatasetRegistry (dry-run #4, superseded) | `CCUEK5OHQYWHV4BCVAGJRSC7IO3QK7OYR7PXFQZUQU2Q56EZOXPPUA34` |
+| JobManager (dry-run #4 — request 1 consumed) | `CDFHLZETEDYXKY3K6RK4C24EOZH6GDNLFZ4MVI4CRPNINCA7JDXNYGPL` |
+| DatasetRegistry (dry-run #3, superseded) | `CC3J5NH5RSE7JMAABKFCUZDPZ6K2MDWINON3HOA3AYICP2VAAUFXKDX6` |
+| JobManager (dry-run #3 — request 1 wrong-const) | `CDVD4MZOWARAXEO7JJPW7KN64TFY3PCFG43OC3JIAPQJOYCVO55CVXRY` |
+| DatasetRegistry (dry-run #2, superseded) | `CBP33TITYLCTTDAMYQMU4MYFMWMLH2YQ67LBBZJMXVD4YZ4TQQB2WH6K` |
+| JobManager (dry-run #2 — request 1 consumed) | `CDN2ZJ56ULNITYQJMTRGYL2XVX4MHXZNRRXE73ZSQCF2FL4K3ZNJA2DR` |
 | DatasetRegistry (dry-run #1, superseded) | `CC5XUULE2ZW3KURTIGEFOAVWY2UKQ4QJNW7L4WEQVSEMOIOEQ2GZEGWG` |
 | JobManager (dry-run #1 — request 1 consumed) | `CCYH2WH7ZN4YXQ2WW455OSEVDZHRLJT2RWP5BCCWLWQ2NXOFQDAMW4XE` |
 | DatasetRegistry (verified instance) | `CD5QW2UNV6LUB6U4WEWX5ZZ5KHWE3X5XWZM3PZNTHG7WC5WWUATTOBF5` |
