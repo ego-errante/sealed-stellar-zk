@@ -28,10 +28,13 @@ The Nethermind verifier stack is unchanged and reused across redeploys. See the 
 
 ## Our contracts
 
-The current pristine pair is **schema-enabled** — the `Dataset` carries `column_names` (Phase-1
-addition). The guest, journal, `query_hash`, and `image_id` are unchanged, so the pre-baked demo proof
-still fulfills. The **frontend bindings + the pre-baked demo proof point at this pair** (`CASQR7…`/
-`CDIWSDJ…`; request ids start at 1, so `demo/ds4_count_age_gt30_proof.json` fulfills request 1).
+The current pair is **schema-enabled** — the `Dataset` carries `column_names` (Phase-1 addition). The
+guest, journal, `query_hash`, and `image_id` are unchanged, so the pre-baked demo proof fulfills. The
+**frontend bindings point at this pair** (`CB7F7A23…`/`CDB2W5HP…`). It was deployed fresh for the demo
+recording (2026-06-25) and **holds the demo's live run**: dataset 1 + request 1 fulfilled, `get_result(1)
+= (3, true, false)`. (The prior schema pair `CASQR7…`/`CDIWSDJ…` was retired when a demo take submitted
+request 1 with `target_field=1` instead of `0` — for COUNT the target is ignored in the result but is part
+of `query_hash`, so that request could never match the pre-baked proof; redeployed pristine to reset ids.)
 
 Prior pairs were post-review (full-op, request_id-bound guest, image_id `6290a9cb…`); the pre-schema
 ones were deployed from identical pre-schema wasm. `CBWI…`/`CBBS…` was the last **pre-schema** pristine
@@ -44,8 +47,10 @@ ran against.
 
 | Contract | Address |
 |----------|---------|
-| **DatasetRegistry (schema — frontend/demo)** | **`CASQR7SRKXWAHFWR27UEJLUE6FZEIVLM67IFABK6V7FIXC6WBEAZKH7C`** |
-| **JobManager (schema — frontend/demo)** | **`CDIWSDJACIMAQYF6SLPEEAMSHE3TQKXEDAI2K7TSAV4WYQOLF52MFADH`** |
+| **DatasetRegistry (schema — frontend/demo, CURRENT)** | **`CB7F7A23JYWZVBE5WJZTJDYSKK2IHUJJF2GSY575HMSVN2NVL5OQPTAA`** |
+| **JobManager (schema — frontend/demo, CURRENT)** | **`CDB2W5HPALCKHG63G75KMAZQYEL45JZJZT5LFQPD4BNCULKAIYCMAXIW`** |
+| DatasetRegistry (schema pristine, superseded) | `CASQR7SRKXWAHFWR27UEJLUE6FZEIVLM67IFABK6V7FIXC6WBEAZKH7C` |
+| JobManager (schema — superseded, request 1 wrong target_field) | `CDIWSDJACIMAQYF6SLPEEAMSHE3TQKXEDAI2K7TSAV4WYQOLF52MFADH` |
 | DatasetRegistry (pre-schema pristine, superseded) | `CBWIVBE7OCEJ7DNTLPP7FWBUN2PQXABZHBTSHIXNU6Z7Y6EV4AXBLEIG` |
 | JobManager (pre-schema pristine, superseded) | `CBBSS7HEHQQ3ERKV6W63MWBGHC4BBBDYQQMWARO2AFBOG3M6XMJQWQR5` |
 | DatasetRegistry (dry-run #4, superseded) | `CCUEK5OHQYWHV4BCVAGJRSC7IO3QK7OYR7PXFQZUQU2Q56EZOXPPUA34` |

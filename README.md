@@ -14,13 +14,13 @@ To our knowledge, Sealed is the **first verifiable private-analytics marketplace
 anyone holding a sensitive dataset — payroll, clinical records, transaction history, ad-conversion, ESG
 — can sell *verifiable aggregate answers* without ever revealing a row.
 
-- 🎥 **Demo video:** https://youtu.be/HBnWqFeOLuM
+- 🎥 **Demo video:** https://youtu.be/6RzvZbpHq2k
 - 🌐 **Network:** Stellar Testnet · 📜 **Contracts:** [see addresses](#live-on-testnet)
 - 🔐 **ZK stack:** RISC Zero zkVM 3.0.5 → Groth16 → [Nethermind Soroban verifier](https://github.com/NethermindEth/stellar-risc0-verifier)
 - ⚙️ **How the engine works:** [`docs/ENGINE.md`](docs/ENGINE.md) — the filter VM, aggregates, k-anonymity, and the commitments that bind them
 - 🧑‍💻 **Built solo** in 8 days for this hackathon.
 
-> **For judges (5 minutes):** watch the [~2-min demo](https://youtu.be/HBnWqFeOLuM); see a real proof
+> **For judges (5 minutes):** watch the [~2-min demo](https://youtu.be/6RzvZbpHq2k); see a real proof
 > verified **and** bound on-chain in the [`fulfill` tx](#live-on-testnet) — and a tampered/replayed proof
 > rejected; then drive the live UI yourself against testnet ([run it](#running-it-yourself), no rebuild
 > needed, connect Freighter). The [`demo/`](demo/) folder ships a CSV + a pre-baked proof so you can
@@ -213,24 +213,24 @@ matters.
 
 ## Live on testnet
 
-Network: **Stellar Testnet**, Protocol 27. The addresses below are the current **schema-enabled pristine
-pair** — what the frontend bindings (the source of truth) and the pre-baked demo proof point at. Request
-ids start at 1, so the proof in `demo/` fulfills request 1.
+Network: **Stellar Testnet**, Protocol 27. The addresses below are the current **schema-enabled pair** —
+what the frontend bindings (the source of truth) point at. It holds the demo's live run: **dataset 1**
+(committed Merkle root + on-chain column labels) and **request 1**, fulfilled by a real Groth16 proof
+(`get_result(1) = (3, true, false)`).
 
 | Contract | Address (→ stellar.expert) |
 |----------|----------------------------|
-| **DatasetRegistry** | [`CASQR7SRKXWAHFWR27UEJLUE6FZEIVLM67IFABK6V7FIXC6WBEAZKH7C`](https://stellar.expert/explorer/testnet/contract/CASQR7SRKXWAHFWR27UEJLUE6FZEIVLM67IFABK6V7FIXC6WBEAZKH7C) |
-| **JobManager** | [`CDIWSDJACIMAQYF6SLPEEAMSHE3TQKXEDAI2K7TSAV4WYQOLF52MFADH`](https://stellar.expert/explorer/testnet/contract/CDIWSDJACIMAQYF6SLPEEAMSHE3TQKXEDAI2K7TSAV4WYQOLF52MFADH) |
+| **DatasetRegistry** | [`CB7F7A23JYWZVBE5WJZTJDYSKK2IHUJJF2GSY575HMSVN2NVL5OQPTAA`](https://stellar.expert/explorer/testnet/contract/CB7F7A23JYWZVBE5WJZTJDYSKK2IHUJJF2GSY575HMSVN2NVL5OQPTAA) |
+| **JobManager** | [`CDB2W5HPALCKHG63G75KMAZQYEL45JZJZT5LFQPD4BNCULKAIYCMAXIW`](https://stellar.expert/explorer/testnet/contract/CDB2W5HPALCKHG63G75KMAZQYEL45JZJZT5LFQPD4BNCULKAIYCMAXIW) |
 | VerifierRouter (Nethermind) | [`CBRBVQP2GOW6FONS4S4Q6BEC53BAJJGWOJRXC4KNDCFJ6WG673MQX633`](https://stellar.expert/explorer/testnet/contract/CBRBVQP2GOW6FONS4S4Q6BEC53BAJJGWOJRXC4KNDCFJ6WG673MQX633) |
 | Groth16Verifier (Nethermind) | [`CALVN6PA6YIGSIKI6T7ZZAP2IW7UF3N4MLNVMOU2DWQ7HUYFXLMBDIX4`](https://stellar.expert/explorer/testnet/contract/CALVN6PA6YIGSIKI6T7ZZAP2IW7UF3N4MLNVMOU2DWQ7HUYFXLMBDIX4) |
 
 - **Guest `image_id`** (the one program the JobManager trusts):
   `6290a9cb12b55075f93834a58eccfa100b7839157f37df8b3f4eae78060108c3`
-- **Proven end-to-end on-chain** on `JobManager CD5FEIP2FG43VQKJ7E7ODOGYJ3ZAT5CDN6ZKQCOQRVJCQQBIRWJ4NU4I`:
-  register → submit → accept → `fulfill` with the real Groth16 proof → **`get_result` = `(3, true, false)`**
-  ([fulfill tx](https://stellar.expert/explorer/testnet/tx/b8dc567e93e7e912e35fd6007b787b1c5c8827beff0ae76db61654cfdc2e7b32)).
-  The later `column_names` schema addition doesn't touch the journal, `query_hash`, `image_id`, or the
-  verify + bind path, so this same proof still fulfills on the current pair.
+- **Proven end-to-end on-chain** on the current `JobManager` (above): register → submit → accept →
+  `fulfill` with the real Groth16 proof → **`get_result(1) = (3, true, false)`**. This is the exact flow
+  in the [demo video](https://youtu.be/6RzvZbpHq2k), live on the schema-enabled pair — anyone can re-read
+  it by calling `get_result(1)` on the JobManager.
 - **Replay rejection proven on-chain:** an *identical* second request (id 2) cannot be fulfilled with
   request 1's valid proof — the router's `verify` returns success, then `fulfill` **traps** on the
   `request_id` binding (`UnreachableCodeReached`). A proof is bound to exactly one request.
