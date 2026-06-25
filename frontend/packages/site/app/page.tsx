@@ -2,6 +2,8 @@ import { ShieldCheck } from "lucide-react";
 import { WalletButton } from "@/components/WalletButton";
 import { Overview } from "@/components/Overview";
 import { MastheadStats } from "@/components/MastheadStats";
+import { HostedBanner } from "@/components/HostedBanner";
+import { IS_HOSTED } from "@/lib/env";
 
 export default function Home() {
   return (
@@ -21,6 +23,8 @@ export default function Home() {
           <WalletButton />
         </div>
       </header>
+
+      {IS_HOSTED && <HostedBanner />}
 
       <section className="mx-auto max-w-6xl px-6 pb-12 pt-14">
         <p className="font-mono text-xs uppercase tracking-[0.2em] text-proof">

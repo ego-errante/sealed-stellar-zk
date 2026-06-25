@@ -13,6 +13,8 @@ import { toProveParams } from "@/lib/convert";
 import { describeRequest } from "@/lib/query";
 import { getCsv, hasCsv, saveCsv } from "@/lib/csvStore";
 import { proverProve, proverRegister } from "@/lib/prover";
+import { HostedNote } from "@/components/HostedNote";
+import { IS_HOSTED } from "@/lib/env";
 
 /**
  * Owner-only. Two owner-local proof paths:
@@ -137,36 +139,45 @@ export function FulfillPanel({
       {/* Live local path — convenience (data stays on your machine) */}
       <div className="space-y-2">
         <Label className="text-xs font-semibold">Prove locally</Label>
-        {csvPresent ? (
-          <p className="font-mono text-xs text-verify">CSV on file ✓</p>
+        {IS_HOSTED ? (
+          <HostedNote>
+            Live proving runs the prover on your own machine — it isn’t part of the
+            hosted demo. Paste a CLI-generated proof above, or clone the repo.
+          </HostedNote>
         ) : (
-          <div className="space-y-1">
-            <p className="font-mono text-xs text-alert">
-              CSV not on this device — re-upload to prove (verified vs the root)
+          <>
+            {csvPresent ? (
+              <p className="font-mono text-xs text-verify">CSV on file ✓</p>
+            ) : (
+              <div className="space-y-1">
+                <p className="font-mono text-xs text-alert">
+                  CSV not on this device — re-upload to prove (verified vs the root)
+                </p>
+                <Input type="file" accept=".csv,text/csv" onChange={onReUpload} />
+              </div>
+            )}
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={onProveLocally}
+              disabled={!csvPresent || proving || fulfill.isPending}
+            >
+              {proving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Proving locally… (~{Math.round(237 + 7.5 * Number(dataset.rowCount))}s)
+                </>
+              ) : (
+                <>
+                  <Upload className="mr-2 h-4 w-4" /> Prove locally & fulfill
+                </>
+              )}
+            </Button>
+            <p className="text-[11px] text-muted-foreground">
+              Data stays on your machine. Live proving suits small datasets (≤20 rows).
             </p>
-            <Input type="file" accept=".csv,text/csv" onChange={onReUpload} />
-          </div>
+          </>
         )}
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={onProveLocally}
-          disabled={!csvPresent || proving || fulfill.isPending}
-        >
-          {proving ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Proving locally… (~{Math.round(237 + 7.5 * Number(dataset.rowCount))}s)
-            </>
-          ) : (
-            <>
-              <Upload className="mr-2 h-4 w-4" /> Prove locally & fulfill
-            </>
-          )}
-        </Button>
-        <p className="text-[11px] text-muted-foreground">
-          Data stays on your machine. Live proving suits small datasets (≤20 rows).
-        </p>
       </div>
     </div>
   );

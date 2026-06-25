@@ -19,6 +19,8 @@ import { useRegisterDataset } from "@/hooks/useDatasetRegistry";
 import { saveCsv } from "@/lib/csvStore";
 import { countDataRows, parseCsvWithSchema } from "@/lib/csv";
 import { proverRegister, type RegisterResult } from "@/lib/prover";
+import { HostedNote } from "@/components/HostedNote";
+import { IS_HOSTED } from "@/lib/env";
 
 export function RegisterDatasetModal() {
   const [open, setOpen] = useState(false);
@@ -162,11 +164,18 @@ export function RegisterDatasetModal() {
             </div>
           )}
 
+          {IS_HOSTED && (
+            <HostedNote>
+              Registering computes the Merkle root with the owner-local prover,
+              which isn’t part of the hosted demo.
+            </HostedNote>
+          )}
+
           {!meta ? (
             <Button
               variant="secondary"
               onClick={computeRoot}
-              disabled={!csv.trim() || computing}
+              disabled={!csv.trim() || computing || IS_HOSTED}
               className="w-full"
             >
               {computing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
