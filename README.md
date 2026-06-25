@@ -15,6 +15,9 @@ anyone holding a sensitive dataset — payroll, clinical records, transaction hi
 — can sell *verifiable aggregate answers* without ever revealing a row.
 
 - 🎥 **Demo video:** https://youtu.be/6RzvZbpHq2k
+- 🌐 **Live demo:** https://sealed-stellar-zk.vercel.app — browse the sealed datasets, read every query in
+  plain English, and inspect proofs already verified on-chain (connect Freighter to drive it). Registering
+  and live proving run the prover on the owner's own machine by design, so those are local-only.
 - 🌐 **Network:** Stellar Testnet · 📜 **Contracts:** [see addresses](#live-on-testnet)
 - 🔐 **ZK stack:** RISC Zero zkVM 3.0.5 → Groth16 → [Nethermind Soroban verifier](https://github.com/NethermindEth/stellar-risc0-verifier)
 - ⚙️ **How the engine works:** [`docs/ENGINE.md`](docs/ENGINE.md) — the filter VM, aggregates, k-anonymity, and the commitments that bind them
@@ -22,8 +25,9 @@ anyone holding a sensitive dataset — payroll, clinical records, transaction hi
 
 > **For judges (5 minutes):** watch the [~2-min demo](https://youtu.be/6RzvZbpHq2k); see a real proof
 > verified **and** bound on-chain in the [`fulfill` tx](#live-on-testnet) — and a tampered/replayed proof
-> rejected; then drive the live UI yourself against testnet ([run it](#running-it-yourself), no rebuild
-> needed, connect Freighter). The [`demo/`](demo/) folder ships a CSV + a pre-baked proof so you can
+> rejected; then drive the live UI yourself — open the [hosted demo](https://sealed-stellar-zk.vercel.app)
+> with zero setup, or [run it locally](#running-it-yourself) for the full register + live-prove flow
+> (connect Freighter either way). The [`demo/`](demo/) folder ships a CSV + a pre-baked proof so you can
 > fulfill instantly. For the *why it's interesting*, skim [`docs/ENGINE.md`](docs/ENGINE.md).
 
 ---
