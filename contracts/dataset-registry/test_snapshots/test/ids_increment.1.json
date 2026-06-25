@@ -32,6 +32,16 @@
                 },
                 {
                   "u32": 0
+                },
+                {
+                  "vec": [
+                    {
+                      "string": "age"
+                    },
+                    {
+                      "string": "balance"
+                    }
+                  ]
                 }
               ]
             }
@@ -66,6 +76,16 @@
                 },
                 {
                   "u32": 0
+                },
+                {
+                  "vec": [
+                    {
+                      "string": "age"
+                    },
+                    {
+                      "string": "balance"
+                    }
+                  ]
                 }
               ]
             }
@@ -106,6 +126,21 @@
               "durability": "persistent",
               "val": {
                 "map": [
+                  {
+                    "key": {
+                      "symbol": "column_names"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "string": "age"
+                        },
+                        {
+                          "string": "balance"
+                        }
+                      ]
+                    }
+                  },
                   {
                     "key": {
                       "symbol": "cooldown_sec"
@@ -182,6 +217,21 @@
               "durability": "persistent",
               "val": {
                 "map": [
+                  {
+                    "key": {
+                      "symbol": "column_names"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "string": "age"
+                        },
+                        {
+                          "string": "balance"
+                        }
+                      ]
+                    }
+                  },
                   {
                     "key": {
                       "symbol": "cooldown_sec"
