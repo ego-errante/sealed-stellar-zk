@@ -21,3 +21,6 @@ dist/
 # OS / editor
 .DS_Store
 *.swp
+
+# Local-only working docs (internal notes, not deliverables)
+/DEMO_SCRIPT.local.md
