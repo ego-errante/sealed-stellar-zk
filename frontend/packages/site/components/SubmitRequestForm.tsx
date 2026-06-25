@@ -84,7 +84,7 @@ export function SubmitRequestForm({
             <SelectContent>
               {Array.from({ length: dataset.numColumns }, (_, i) => (
                 <SelectItem key={i} value={String(i)}>
-                  Field {i}
+                  {dataset.columnNames[i]?.trim() || `Field ${i}`}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -92,7 +92,7 @@ export function SubmitRequestForm({
         </div>
       </div>
 
-      <FilterBuilder numColumns={dataset.numColumns} onFilterChange={setFilter} />
+      <FilterBuilder columnNames={dataset.columnNames} onFilterChange={setFilter} />
 
       {op === WEIGHTED_SUM && (
         <div className="space-y-1.5">

@@ -40,14 +40,15 @@ interface FilterCondition {
 }
 
 interface FilterBuilderProps {
-  numColumns: number;
+  columnNames: string[];
   onFilterChange: (compiledFilter: CompiledFilter | null) => void;
 }
 
 export function FilterBuilder({
-  numColumns,
+  columnNames,
   onFilterChange,
 }: FilterBuilderProps) {
+  const fieldLabel = (i: number) => columnNames[i]?.trim() || `Field ${i}`;
   const [conditions, setConditions] = useState<FilterCondition[]>([]);
   const [logicalOp, setLogicalOp] = useState<LogicalOp>("AND");
   const [showBuilder, setShowBuilder] = useState(false);
@@ -268,9 +269,9 @@ export function FilterBuilder({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {Array.from({ length: numColumns }, (_, i) => (
+                    {Array.from({ length: columnNames.length }, (_, i) => (
                       <SelectItem key={i} value={i.toString()}>
-                        Field {i}
+                        {fieldLabel(i)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -357,7 +358,7 @@ export function FilterBuilder({
             <span key={c.id}>
               {i > 0 && ` ${logicalOp} `}
               {c.negate && "NOT "}
-              (Field[{c.fieldIndex}] {operatorLabels[c.operator]} {c.value})
+              ({fieldLabel(c.fieldIndex)} {operatorLabels[c.operator]} {c.value})
             </span>
           ))}
         </div>

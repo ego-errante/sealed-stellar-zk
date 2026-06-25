@@ -55,7 +55,9 @@ export function RequestRow({
           <span className="font-mono text-sm">#{request.id.toString()}</span>{" "}
           <span className="font-semibold">{OpNames[request.op]}</span>{" "}
           <span className="font-mono text-xs text-muted-foreground">
-            field {request.targetField} · buyer {truncate(request.buyer)}
+            {dataset?.columnNames[request.targetField]?.trim() ||
+              `field ${request.targetField}`}{" "}
+            · buyer {truncate(request.buyer)}
           </span>
         </div>
         <span
