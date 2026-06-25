@@ -28,20 +28,26 @@ The Nethermind verifier stack is unchanged and reused across redeploys. See the 
 
 ## Our contracts
 
-All pairs below are post-review (full-op, request_id-bound guest, image_id `6290a9cb…`), deployed
-from identical wasm. The **frontend bindings + the pre-baked demo proof point at the current pristine
-pair** (`CBWI…`/`CBBS…`, deployed 2026-06-24 — request ids start at 1, so
-`demo/ds4_count_age_gt30_proof.json` fulfills request 1). Each prior pristine pair was retired once its
-request id 1 was consumed by a real-Freighter dry run: `CCUE…`/`CDFH…` (dry-run #4); `CC3J…`/`CDVD…`
-(dry-run #3 — request 1 was submitted with the wrong filter const `[0]` instead of `[30]`, so its
-`query_hash` could never match the pre-baked proof); `CBP33…`/`CDN2…` (dry-run #2); `CC5X…`/`CCYH…`
-(dry-run #1, `get_result(1) = [3, true, false]`, 2026-06-23). The **verified pair** is the one the
-original CLI end-to-end on-chain check ran against.
+The current pristine pair is **schema-enabled** — the `Dataset` carries `column_names` (Phase-1
+addition). The guest, journal, `query_hash`, and `image_id` are unchanged, so the pre-baked demo proof
+still fulfills. The **frontend bindings + the pre-baked demo proof point at this pair** (`CASQR7…`/
+`CDIWSDJ…`; request ids start at 1, so `demo/ds4_count_age_gt30_proof.json` fulfills request 1).
+
+Prior pairs were post-review (full-op, request_id-bound guest, image_id `6290a9cb…`); the pre-schema
+ones were deployed from identical pre-schema wasm. `CBWI…`/`CBBS…` was the last **pre-schema** pristine
+pair (2026-06-24). Each prior pristine pair was retired once its request id 1 was consumed by a
+real-Freighter dry run: `CCUE…`/`CDFH…` (dry-run #4); `CC3J…`/`CDVD…` (dry-run #3 — request 1 was
+submitted with the wrong filter const `[0]` instead of `[30]`, so its `query_hash` could never match
+the pre-baked proof); `CBP33…`/`CDN2…` (dry-run #2); `CC5X…`/`CCYH…` (dry-run #1, `get_result(1) = [3,
+true, false]`, 2026-06-23). The **verified pair** is the one the original CLI end-to-end on-chain check
+ran against.
 
 | Contract | Address |
 |----------|---------|
-| **DatasetRegistry (pristine — frontend/demo)** | **`CBWIVBE7OCEJ7DNTLPP7FWBUN2PQXABZHBTSHIXNU6Z7Y6EV4AXBLEIG`** |
-| **JobManager (pristine — frontend/demo)** | **`CBBSS7HEHQQ3ERKV6W63MWBGHC4BBBDYQQMWARO2AFBOG3M6XMJQWQR5`** |
+| **DatasetRegistry (schema — frontend/demo)** | **`CASQR7SRKXWAHFWR27UEJLUE6FZEIVLM67IFABK6V7FIXC6WBEAZKH7C`** |
+| **JobManager (schema — frontend/demo)** | **`CDIWSDJACIMAQYF6SLPEEAMSHE3TQKXEDAI2K7TSAV4WYQOLF52MFADH`** |
+| DatasetRegistry (pre-schema pristine, superseded) | `CBWIVBE7OCEJ7DNTLPP7FWBUN2PQXABZHBTSHIXNU6Z7Y6EV4AXBLEIG` |
+| JobManager (pre-schema pristine, superseded) | `CBBSS7HEHQQ3ERKV6W63MWBGHC4BBBDYQQMWARO2AFBOG3M6XMJQWQR5` |
 | DatasetRegistry (dry-run #4, superseded) | `CCUEK5OHQYWHV4BCVAGJRSC7IO3QK7OYR7PXFQZUQU2Q56EZOXPPUA34` |
 | JobManager (dry-run #4 — request 1 consumed) | `CDFHLZETEDYXKY3K6RK4C24EOZH6GDNLFZ4MVI4CRPNINCA7JDXNYGPL` |
 | DatasetRegistry (dry-run #3, superseded) | `CC3J5NH5RSE7JMAABKFCUZDPZ6K2MDWINON3HOA3AYICP2VAAUFXKDX6` |
