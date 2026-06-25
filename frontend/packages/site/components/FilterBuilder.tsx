@@ -229,10 +229,10 @@ export function FilterBuilder({
             key={condition.id}
             className="flex items-start gap-2 p-3 bg-muted/50 rounded-md"
           >
-            <div className="flex-1 grid grid-cols-12 gap-2 items-end">
+            <div className="flex-1 grid grid-cols-2 gap-2 items-end">
               {/* Show logical operator between conditions */}
               {index > 0 && (
-                <div className="col-span-12 -mt-2 mb-1">
+                <div className="col-span-2 -mt-2 mb-1">
                   <Badge variant="outline" className="text-xs">
                     {logicalOp}
                   </Badge>
@@ -240,7 +240,7 @@ export function FilterBuilder({
               )}
 
               {/* NOT toggle */}
-              <div className="col-span-2">
+              <div className="col-span-1">
                 <Label className="text-xs">NOT</Label>
                 <Button
                   type="button"
@@ -256,7 +256,7 @@ export function FilterBuilder({
               </div>
 
               {/* Field Index */}
-              <div className="col-span-3">
+              <div className="col-span-1">
                 <Label className="text-xs">Field</Label>
                 <Select
                   value={condition.fieldIndex.toString()}
@@ -278,7 +278,7 @@ export function FilterBuilder({
               </div>
 
               {/* Operator */}
-              <div className="col-span-3">
+              <div className="col-span-1">
                 <Label className="text-xs">Operator</Label>
                 <Select
                   value={condition.operator}
@@ -304,7 +304,7 @@ export function FilterBuilder({
               </div>
 
               {/* Value */}
-              <div className="col-span-4">
+              <div className="col-span-1">
                 <Label className="text-xs">Value</Label>
                 <Input
                   type="number"
