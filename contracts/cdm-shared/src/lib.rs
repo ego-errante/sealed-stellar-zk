@@ -1,4 +1,4 @@
-//! Shared encoding for the CDM ZK marketplace: canonical query bytes, the 95-byte journal layout,
+//! Shared encoding for the CDM ZK marketplace: canonical query bytes, the 103-byte journal layout,
 //! and the sha256 Merkle scheme. Used by the guest and the host CLI; the Soroban contract mirrors
 //! the same byte order (guarded by a cross-impl test vector).
 

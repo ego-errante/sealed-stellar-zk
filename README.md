@@ -9,9 +9,22 @@
 Built for **[Stellar Hacks: Real-World ZK](https://dorahacks.io/hackathon/stellar-hacks-zk)** (Stellar
 Development Foundation). Live on **Stellar testnet** (Protocol 27, BN254 host functions).
 
-- 🎥 **Demo video:** https://youtu.be/HBnWqFeOLuM
+To our knowledge, Sealed is the **first verifiable private-analytics marketplace on Stellar** — and the
+**first to enforce k-anonymity inside a Soroban-verified proof**. The mechanism is domain-general:
+anyone holding a sensitive dataset — payroll, clinical records, transaction history, ad-conversion, ESG
+— can sell *verifiable aggregate answers* without ever revealing a row.
+
+- 🎥 **Demo video:** https://youtu.be/6RzvZbpHq2k
 - 🌐 **Network:** Stellar Testnet · 📜 **Contracts:** [see addresses](#live-on-testnet)
 - 🔐 **ZK stack:** RISC Zero zkVM 3.0.5 → Groth16 → [Nethermind Soroban verifier](https://github.com/NethermindEth/stellar-risc0-verifier)
+- ⚙️ **How the engine works:** [`docs/ENGINE.md`](docs/ENGINE.md) — the filter VM, aggregates, k-anonymity, and the commitments that bind them
+- 🧑‍💻 **Built solo** in 8 days for this hackathon.
+
+> **For judges (5 minutes):** watch the [~2-min demo](https://youtu.be/6RzvZbpHq2k); see a real proof
+> verified **and** bound on-chain in the [`fulfill` tx](#live-on-testnet) — and a tampered/replayed proof
+> rejected; then drive the live UI yourself against testnet ([run it](#running-it-yourself), no rebuild
+> needed, connect Freighter). The [`demo/`](demo/) folder ships a CSV + a pre-baked proof so you can
+> fulfill instantly. For the *why it's interesting*, skim [`docs/ENGINE.md`](docs/ENGINE.md).
 
 ---
 
@@ -65,11 +78,11 @@ makes the on-chain verifier **trap**. ([proven on testnet](#live-on-testnet).)
                                           └────────────────────────┘
   ┌─────────────────────────────────┐
   │ RISC Zero guest (in zkVM)        │     proof = (seal, journal)
-  │  • recompute Merkle root         │     journal = 95 bytes:
-  │  • run filter VM over each row   │       root│query_hash│op│cols│k│
-  │  • aggregate matching rows       │       count│result│k_met│overflow
+  │  • recompute Merkle root         │     journal = 103 bytes:
+  │  • run filter VM over each row   │       root│query_hash│op│cols│k│count│
+  │  • aggregate matching rows       │       result│k_met│overflow│request_id
   │  • enforce k-anonymity           │
-  │  • commit 95-byte journal        │── fulfill(seal, journal) ──┐
+  │  • commit 103-byte journal       │── fulfill(seal, journal) ──┐
   └─────────────────────────────────┘                            ▼
         ▲                                 ┌────────────────────────────────────┐
         │ Groth16 (STARK→SNARK wrap,      │ JobManager.fulfill:                │
@@ -125,6 +138,36 @@ never sees data, only a number the chain has certified.
 
 ---
 
+## The computation engine
+
+The interesting part of Sealed isn't "a proof exists" — it's the **small verifiable query engine** that
+runs inside it. A query is an aggregate `op`, a `target` column, an optional **filter** compiled to
+stack bytecode, and a k-anonymity floor. The guest re-executes all of it in-circuit; the same engine
+lives in the Soroban contract, the zkVM guest, and the TypeScript frontend, held byte-identical by a
+cross-implementation test vector. Full walkthrough: **[`docs/ENGINE.md`](docs/ENGINE.md)**.
+
+Over a 5-row dataset `[id, age, balance]`, the range it proves — with the filter `age > 30`:
+
+| Query (as the UI shows it) | Proven result |
+|----------------------------|--------------:|
+| `COUNT(*) WHERE age > 30` | `3` |
+| `SUM(balance) WHERE age > 30` | `310` |
+| `AVG(balance) WHERE age > 30` | `103.33` *(carried as `10333`, ×100 fixed-point)* |
+| `MIN(balance) WHERE age > 30` | `10` |
+| `MAX(balance) WHERE age > 30` | `250` |
+| `WEIGHTED_SUM[1,2,3] WHERE age > 30` | `1188` |
+| `COUNT(*) WHERE (age > 30) AND (balance ≤ 5000)` | *(nested filters: `AND`/`OR`/`NOT`)* |
+
+The **filter** is a postfix bytecode VM (`PUSH_FIELD` / `PUSH_CONST` / comparators / `AND`·`OR`·`NOT`,
+max depth 8). It's compiled from the UI builder — or from a **pasted JSON query** that references
+columns by name and expresses nesting the inline builder can't — and **decoded back to text** by the
+exact inverse of the compiler, so the line shown to the owner before they prove (`COUNT(*) WHERE age >
+30`) is provably the predicate the proof evaluated. **k-anonymity is enforced in the circuit:** if fewer
+than `k` rows match, the result is zeroed before it reaches the journal (and the overflow flag is
+cleared too, so a suppressed sub-`k` subset can't leak through that channel).
+
+---
+
 ## Trust model & privacy (read this)
 
 **Be honest about what is and isn't trustless** — the hackathon brief asks for it, and the distinction
@@ -133,13 +176,14 @@ matters.
 - **The buyer / the chain are fully protected.** They never see raw rows, and they cannot be lied to:
   the proof + binding guarantee the result is the honest aggregate of the committed dataset under the
   agreed query. This part is trustless.
-- **Column _meaning_ is out-of-band — the proof attests computation, not labels.** Datasets are
-  committed and queried by column **index** (the UI shows `Field 0/1/2`); nothing on-chain names the
-  columns (`Dataset` carries only `num_columns`, a count). The proof guarantees *"this COUNT used
-  column index 1 over rows hashing to the committed root with the agreed filter"* — **not** that index
-  1 is really "age". A buyer learns the schema from the owner's listing / data dictionary and trusts it
-  the way they'd trust any column header; a dishonest owner could mislabel a column and still produce a
-  valid proof. The fix is named in future work.
+- **Column _labels_ are committed on-chain, but not yet _proven_.** The dataset's column names are
+  stored **on-chain** in the `Dataset` (set once at registration, immutable thereafter, identical for
+  every buyer), and the UI renders queries with them — `COUNT(*) WHERE age > 30`, not `field 1`. That's
+  a real improvement over an off-chain data dictionary. But the proof still binds columns by **index**:
+  the names aren't folded into `query_hash` or the Merkle root, so they remain owner-asserted metadata.
+  The proof guarantees *"this COUNT used column index 1 over rows hashing to the committed root with the
+  agreed filter"* — **not** that index 1 is truthfully "age." A dishonest owner could mislabel a column
+  and still produce a valid proof. Folding the schema into the commitment is named in future work.
 - **The prover sits inside the owner's trust boundary — by design.** The owner owns the rows; ZK
   exists so a *verifiable aggregate* reaches the buyer **without the rows**. So the prover runs
   **owner-local**:
@@ -161,30 +205,32 @@ matters.
   the one remaining trust gap and enabling a true third-party proving service.
 - **Poseidon Merkle commitments** — we use sha256 (simple, in-circuit, proven). Poseidon would cut
   zkVM cycles and proving time substantially.
-- **Schema commitment** — hash the column names/types and fold it into the Merkle root (or store it as
-  a dataset field) and into `query_hash`, so a label like "age = index 1" is bound by the same
-  commitment the proof already covers. Closes the out-of-band-labeling gap noted in the trust model.
+- **Schema commitment** — column names are now committed on-chain in the `Dataset` (done); the remaining
+  step is to fold them into `query_hash` / the Merkle root, so a label like "age = index 1" is bound by
+  the same commitment the proof already covers. Closes the labeling gap noted in the trust model.
 
 ---
 
 ## Live on testnet
 
-Network: **Stellar Testnet**, Protocol 27. Deployed 2026-06-24 (the front end + the pre-baked demo
-proof point at this pristine pair — request ids start at 1, so the proof in `demo/` fulfills request 1).
+Network: **Stellar Testnet**, Protocol 27. The addresses below are the current **schema-enabled pair** —
+what the frontend bindings (the source of truth) point at. It holds the demo's live run: **dataset 1**
+(committed Merkle root + on-chain column labels) and **request 1**, fulfilled by a real Groth16 proof
+(`get_result(1) = (3, true, false)`).
 
-| Contract | Address |
-|----------|---------|
-| **DatasetRegistry** | `CBWIVBE7OCEJ7DNTLPP7FWBUN2PQXABZHBTSHIXNU6Z7Y6EV4AXBLEIG` |
-| **JobManager** | `CBBSS7HEHQQ3ERKV6W63MWBGHC4BBBDYQQMWARO2AFBOG3M6XMJQWQR5` |
-| VerifierRouter (Nethermind) | `CBRBVQP2GOW6FONS4S4Q6BEC53BAJJGWOJRXC4KNDCFJ6WG673MQX633` |
-| Groth16Verifier (Nethermind) | `CALVN6PA6YIGSIKI6T7ZZAP2IW7UF3N4MLNVMOU2DWQ7HUYFXLMBDIX4` |
+| Contract | Address (→ stellar.expert) |
+|----------|----------------------------|
+| **DatasetRegistry** | [`CB7F7A23JYWZVBE5WJZTJDYSKK2IHUJJF2GSY575HMSVN2NVL5OQPTAA`](https://stellar.expert/explorer/testnet/contract/CB7F7A23JYWZVBE5WJZTJDYSKK2IHUJJF2GSY575HMSVN2NVL5OQPTAA) |
+| **JobManager** | [`CDB2W5HPALCKHG63G75KMAZQYEL45JZJZT5LFQPD4BNCULKAIYCMAXIW`](https://stellar.expert/explorer/testnet/contract/CDB2W5HPALCKHG63G75KMAZQYEL45JZJZT5LFQPD4BNCULKAIYCMAXIW) |
+| VerifierRouter (Nethermind) | [`CBRBVQP2GOW6FONS4S4Q6BEC53BAJJGWOJRXC4KNDCFJ6WG673MQX633`](https://stellar.expert/explorer/testnet/contract/CBRBVQP2GOW6FONS4S4Q6BEC53BAJJGWOJRXC4KNDCFJ6WG673MQX633) |
+| Groth16Verifier (Nethermind) | [`CALVN6PA6YIGSIKI6T7ZZAP2IW7UF3N4MLNVMOU2DWQ7HUYFXLMBDIX4`](https://stellar.expert/explorer/testnet/contract/CALVN6PA6YIGSIKI6T7ZZAP2IW7UF3N4MLNVMOU2DWQ7HUYFXLMBDIX4) |
 
 - **Guest `image_id`** (the one program the JobManager trusts):
   `6290a9cb12b55075f93834a58eccfa100b7839157f37df8b3f4eae78060108c3`
-- **Proven end-to-end on-chain** on an identical instance (`JobManager
-  CD5FEIP2FG43VQKJ7E7ODOGYJ3ZAT5CDN6ZKQCOQRVJCQQBIRWJ4NU4I`, deployed from the same wasm + image_id):
-  register → submit → accept → `fulfill` with the real Groth16 proof → **`get_result` = `(3, true, false)`**
-  ([fulfill tx](https://stellar.expert/explorer/testnet/tx/b8dc567e93e7e912e35fd6007b787b1c5c8827beff0ae76db61654cfdc2e7b32)).
+- **Proven end-to-end on-chain** on the current `JobManager` (above): register → submit → accept →
+  `fulfill` with the real Groth16 proof → **`get_result(1) = (3, true, false)`**. This is the exact flow
+  in the [demo video](https://youtu.be/6RzvZbpHq2k), live on the schema-enabled pair — anyone can re-read
+  it by calling `get_result(1)` on the JobManager.
 - **Replay rejection proven on-chain:** an *identical* second request (id 2) cannot be fulfilled with
   request 1's valid proof — the router's `verify` returns success, then `fulfill` **traps** on the
   `request_id` binding (`UnreachableCodeReached`). A proof is bound to exactly one request.
@@ -198,7 +244,7 @@ proof point at this pristine pair — request ids start at 1, so the proof in `d
 ```
 sealed-stellar-zk/
 ├─ contracts/                 Soroban contracts (Rust, no_std) — cargo workspace
-│  ├─ cdm-shared/             merkle · filter VM · aggregates · 95-byte journal · query_hash (41 tests)
+│  ├─ cdm-shared/             merkle · filter VM · aggregates · 103-byte journal · query_hash (29 tests)
 │  ├─ dataset-registry/       register_dataset / get_dataset
 │  └─ job-manager/            submit / accept / reject / fulfill (verify + bind) / get_result
 ├─ cdm-guest/                 RISC Zero zkVM program + prover CLI
@@ -246,11 +292,13 @@ for the container build steps, gotchas, and the deploy/bindings commands.
 
 ## Tests
 
-- **Contracts + shared + guest logic:** `cargo test` — **41 tests** (cdm-shared 28, dataset-registry 5,
-  job-manager 8), including the real-Groth16 happy path through the actual verifier contract and 6
-  negative security tests (tampered journal, wrong owner, root/op/k/query_hash mismatch).
-- **Frontend glue:** `npm test` in `frontend` — vitest on `lib/convert.ts` (filter-DSL bytecode ↔
-  on-chain params ↔ prover params round-trip).
+- **Contracts + shared + guest logic:** `cargo test` — **54 tests** (cdm-shared 29, dataset-registry 7,
+  job-manager 18), including the real-Groth16 happy path through the actual verifier contract and the
+  negative security tests (tampered journal, wrong owner, root/op/k/query_hash mismatch, replay,
+  schema-length mismatch).
+- **Frontend glue:** `npm test` in `frontend` — **43 vitest tests**: filter-DSL bytecode ↔ on-chain
+  params ↔ prover params round-trip, the bytecode→text decoder (`compile → decode` is identity),
+  CSV-header schema parsing, and the JSON query parser.
 
 ---
 
@@ -263,9 +311,9 @@ Per the brief's "say what's unfinished" — here's the straight version:
   WEIGHTED_SUM), and the web UI driving all of it. Tamper is rejected on-chain.
 - ⚠️ **Owner-local prover, not a trustless third party** — see [Trust model](#trust-model--privacy-read-this).
   WASM/TEE proving is named future work, not built.
-- ⚠️ **Column semantics are out-of-band** — datasets are queried by column *index*, not name; the proof
-  attests the computation, not that a column's label is truthful. Schema commitment is named future work
-  (see [Trust model](#trust-model--privacy-read-this)).
+- ⚠️ **Column labels are committed, not proven** — names are stored on-chain and the UI queries by name,
+  but the proof binds columns by *index*; it attests the computation, not that a label is truthful.
+  Folding the schema into the commitment is named future work (see [Trust model](#trust-model--privacy-read-this)).
 - ⚠️ **No payments/escrow** — the marketplace settles a *verified result*, not money. Escrow against a
   fulfilled proof is a natural next step, deliberately out of the 8-day MVP.
 - ⚠️ **sha256 Merkle, not Poseidon** — simpler and fully proven; Poseidon would be cheaper to prove.

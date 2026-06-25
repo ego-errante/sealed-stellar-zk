@@ -17,8 +17,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRegisterDataset } from "@/hooks/useDatasetRegistry";
 import { saveCsv } from "@/lib/csvStore";
-import { countDataRows } from "@/lib/csv";
+import { countDataRows, parseCsvWithSchema } from "@/lib/csv";
 import { proverRegister, type RegisterResult } from "@/lib/prover";
+import { HostedNote } from "@/components/HostedNote";
+import { IS_HOSTED } from "@/lib/env";
 
 export function RegisterDatasetModal() {
   const [open, setOpen] = useState(false);
@@ -27,23 +29,34 @@ export function RegisterDatasetModal() {
   const [meta, setMeta] = useState<RegisterResult | null>(null);
   const [k, setK] = useState(2);
   const [cooldown, setCooldown] = useState(0);
+  const [columnNames, setColumnNames] = useState<string[]>([]);
+  const [hadHeader, setHadHeader] = useState(false);
   const register = useRegisterDataset();
 
   // Count non-blank lines (matches proverlib::parse_csv and the on-chain row_count) so the
   // "over 20 rows — pre-bake" live-prove hint can't be thrown off by blank separator lines.
   const rowCount = countDataRows(csv);
+  const namesComplete =
+    columnNames.length > 0 && columnNames.every((n) => n.trim() !== "");
 
   function reset() {
     setCsv("");
     setMeta(null);
     setK(2);
     setCooldown(0);
+    setColumnNames([]);
+    setHadHeader(false);
   }
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
-    setCsv(await f.text());
+    // Strip any header row here so the Merkle root / guest only ever hash integer data rows;
+    // the labels ride alongside as the on-chain schema.
+    const parsed = parseCsvWithSchema(await f.text());
+    setCsv(parsed.dataCsv);
+    setColumnNames(parsed.names);
+    setHadHeader(parsed.hadHeader);
     setMeta(null);
   }
 
@@ -62,10 +75,18 @@ export function RegisterDatasetModal() {
 
   async function onRegister() {
     if (!meta) return;
+    const names = columnNames.map((n) => n.trim());
+    if (names.length !== meta.num_columns || names.some((n) => n === "")) {
+      toast.error("Name every column", {
+        description: `Provide ${meta.num_columns} non-empty column names.`,
+      });
+      return;
+    }
     try {
       const id = await register.mutateAsync({
         merkleRoot: meta.merkle_root,
         numColumns: meta.num_columns,
+        columnNames: names,
         rowCount: meta.row_count,
         k,
         cooldownSec: cooldown,
@@ -115,11 +136,46 @@ export function RegisterDatasetModal() {
             )}
           </div>
 
+          {columnNames.length > 0 && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">
+                Column names{" "}
+                <span className="text-muted-foreground">
+                  {hadHeader
+                    ? "· from CSV header (edit if needed)"
+                    : "· name each column"}
+                </span>
+              </Label>
+              <div className="grid grid-cols-2 gap-2">
+                {columnNames.map((name, i) => (
+                  <Input
+                    key={i}
+                    value={name}
+                    onChange={(e) => {
+                      const next = [...columnNames];
+                      next[i] = e.target.value;
+                      setColumnNames(next);
+                    }}
+                    placeholder={`column ${i}`}
+                    className="font-mono text-xs"
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {IS_HOSTED && (
+            <HostedNote>
+              Registering computes the Merkle root with the owner-local prover,
+              which isn’t part of the hosted demo.
+            </HostedNote>
+          )}
+
           {!meta ? (
             <Button
               variant="secondary"
               onClick={computeRoot}
-              disabled={!csv.trim() || computing}
+              disabled={!csv.trim() || computing || IS_HOSTED}
               className="w-full"
             >
               {computing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -163,7 +219,7 @@ export function RegisterDatasetModal() {
         <DialogFooter>
           <Button
             onClick={onRegister}
-            disabled={!meta || register.isPending}
+            disabled={!meta || !namesComplete || register.isPending}
           >
             {register.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Register on Stellar

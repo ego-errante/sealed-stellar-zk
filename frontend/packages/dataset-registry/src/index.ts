@@ -34,12 +34,17 @@ if (typeof window !== "undefined") {
 export const networks = {
   testnet: {
     networkPassphrase: "Test SDF Network ; September 2015",
-    contractId: "CBWIVBE7OCEJ7DNTLPP7FWBUN2PQXABZHBTSHIXNU6Z7Y6EV4AXBLEIG",
+    contractId: "CB7F7A23JYWZVBE5WJZTJDYSKK2IHUJJF2GSY575HMSVN2NVL5OQPTAA",
   }
 } as const
 
 
 export interface Dataset {
+  /**
+ * Human-readable column labels, one per column (index i ⇒ column_names[i]). Committed on-chain
+ * so the buyer and the proof reference the same agreed schema; the guest still works by index.
+ */
+column_names: Array<string>;
   cooldown_sec: u32;
   k: u64;
   merkle_root: Buffer;
@@ -57,7 +62,7 @@ export interface Client {
   /**
    * Construct and simulate a register_dataset transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  register_dataset: ({owner, merkle_root, num_columns, row_count, k, cooldown_sec}: {owner: string, merkle_root: Buffer, num_columns: u32, row_count: u64, k: u64, cooldown_sec: u32}, options?: MethodOptions) => Promise<AssembledTransaction<u64>>
+  register_dataset: ({owner, merkle_root, num_columns, row_count, k, cooldown_sec, column_names}: {owner: string, merkle_root: Buffer, num_columns: u32, row_count: u64, k: u64, cooldown_sec: u32, column_names: Array<string>}, options?: MethodOptions) => Promise<AssembledTransaction<u64>>
 
   /**
    * Construct and simulate a get_dataset_count transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -82,10 +87,10 @@ export class Client extends ContractClient {
   }
   constructor(public readonly options: ContractClientOptions) {
     super(
-      new ContractSpec([ "AAAAAQAAAAAAAAAAAAAAB0RhdGFzZXQAAAAABgAAAAAAAAAMY29vbGRvd25fc2VjAAAABAAAAAAAAAABawAAAAAAAAYAAAAAAAAAC21lcmtsZV9yb290AAAAA+4AAAAgAAAAAAAAAAtudW1fY29sdW1ucwAAAAAEAAAAAAAAAAVvd25lcgAAAAAAABMAAAAAAAAACXJvd19jb3VudAAAAAAAAAY=",
+      new ContractSpec([ "AAAAAQAAAAAAAAAAAAAAB0RhdGFzZXQAAAAABwAAALtIdW1hbi1yZWFkYWJsZSBjb2x1bW4gbGFiZWxzLCBvbmUgcGVyIGNvbHVtbiAoaW5kZXggaSDih5IgY29sdW1uX25hbWVzW2ldKS4gQ29tbWl0dGVkIG9uLWNoYWluCnNvIHRoZSBidXllciBhbmQgdGhlIHByb29mIHJlZmVyZW5jZSB0aGUgc2FtZSBhZ3JlZWQgc2NoZW1hOyB0aGUgZ3Vlc3Qgc3RpbGwgd29ya3MgYnkgaW5kZXguAAAAAAxjb2x1bW5fbmFtZXMAAAPqAAAAEAAAAAAAAAAMY29vbGRvd25fc2VjAAAABAAAAAAAAAABawAAAAAAAAYAAAAAAAAAC21lcmtsZV9yb290AAAAA+4AAAAgAAAAAAAAAAtudW1fY29sdW1ucwAAAAAEAAAAAAAAAAVvd25lcgAAAAAAABMAAAAAAAAACXJvd19jb3VudAAAAAAAAAY=",
         "AAAAAAAAAAAAAAALZ2V0X2RhdGFzZXQAAAAAAQAAAAAAAAAKZGF0YXNldF9pZAAAAAAABgAAAAEAAAfQAAAAB0RhdGFzZXQA",
         "AAAAAAAAAAAAAAANX19jb25zdHJ1Y3RvcgAAAAAAAAAAAAAA",
-        "AAAAAAAAAAAAAAAQcmVnaXN0ZXJfZGF0YXNldAAAAAYAAAAAAAAABW93bmVyAAAAAAAAEwAAAAAAAAALbWVya2xlX3Jvb3QAAAAD7gAAACAAAAAAAAAAC251bV9jb2x1bW5zAAAAAAQAAAAAAAAACXJvd19jb3VudAAAAAAAAAYAAAAAAAAAAWsAAAAAAAAGAAAAAAAAAAxjb29sZG93bl9zZWMAAAAEAAAAAQAAAAY=",
+        "AAAAAAAAAAAAAAAQcmVnaXN0ZXJfZGF0YXNldAAAAAcAAAAAAAAABW93bmVyAAAAAAAAEwAAAAAAAAALbWVya2xlX3Jvb3QAAAAD7gAAACAAAAAAAAAAC251bV9jb2x1bW5zAAAAAAQAAAAAAAAACXJvd19jb3VudAAAAAAAAAYAAAAAAAAAAWsAAAAAAAAGAAAAAAAAAAxjb29sZG93bl9zZWMAAAAEAAAAAAAAAAxjb2x1bW5fbmFtZXMAAAPqAAAAEAAAAAEAAAAG",
         "AAAAAAAAAAAAAAARZ2V0X2RhdGFzZXRfY291bnQAAAAAAAAAAAAAAQAAAAY=" ]),
       options
     )

@@ -6,7 +6,7 @@ use dataset_registry::{DatasetRegistry, DatasetRegistryClient};
 use groth16_verifier::RiscZeroGroth16Verifier;
 use soroban_sdk::{
     testutils::{storage::Instance as _, Address as _},
-    vec, Address, Bytes, BytesN, Env, Vec,
+    vec, Address, Bytes, BytesN, Env, String, Vec,
 };
 
 struct Fixture {
@@ -73,7 +73,13 @@ fn deploy(
     let reg_id = env.register(DatasetRegistry, ());
     let reg = DatasetRegistryClient::new(env, &reg_id);
     let owner = Address::generate(env);
-    let dataset_id = reg.register_dataset(&owner, root, &3u32, &5u64, &2u64, &cooldown);
+    let cols = vec![
+        env,
+        String::from_str(env, "user_id"),
+        String::from_str(env, "age"),
+        String::from_str(env, "balance"),
+    ];
+    let dataset_id = reg.register_dataset(&owner, root, &3u32, &5u64, &2u64, &cooldown, &cols);
     let v_id = env.register(RiscZeroGroth16Verifier, ());
     let jm_id = env.register(JobManager, (reg_id.clone(), v_id.clone(), image_id.clone()));
     let buyer = Address::generate(env);

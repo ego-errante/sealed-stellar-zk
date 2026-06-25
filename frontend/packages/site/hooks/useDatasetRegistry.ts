@@ -12,6 +12,7 @@ export interface DatasetView {
   owner: string;
   merkleRoot: string; // hex
   numColumns: number;
+  columnNames: string[]; // one label per column (index i ⇒ columnNames[i])
   rowCount: bigint;
   k: bigint;
   cooldownSec: number;
@@ -47,6 +48,7 @@ export function useDatasets() {
             owner: ds.owner,
             merkleRoot: Buffer.from(ds.merkle_root).toString("hex"),
             numColumns: ds.num_columns,
+            columnNames: [...ds.column_names],
             rowCount: ds.row_count,
             k: ds.k,
             cooldownSec: ds.cooldown_sec,
@@ -62,6 +64,7 @@ export function useDatasets() {
 export interface RegisterInput {
   merkleRoot: string; // hex (with or without 0x)
   numColumns: number;
+  columnNames: string[];
   rowCount: number;
   k: number;
   cooldownSec: number;
@@ -83,6 +86,7 @@ export function useRegisterDataset() {
         row_count: BigInt(input.rowCount),
         k: BigInt(input.k),
         cooldown_sec: input.cooldownSec,
+        column_names: input.columnNames,
       });
       const sent = await tx.signAndSend();
       return sent.result;

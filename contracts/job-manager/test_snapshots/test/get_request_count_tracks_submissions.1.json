@@ -32,6 +32,19 @@
                 },
                 {
                   "u32": 0
+                },
+                {
+                  "vec": [
+                    {
+                      "string": "user_id"
+                    },
+                    {
+                      "string": "age"
+                    },
+                    {
+                      "string": "balance"
+                    }
+                  ]
                 }
               ]
             }
@@ -215,6 +228,24 @@
               "durability": "persistent",
               "val": {
                 "map": [
+                  {
+                    "key": {
+                      "symbol": "column_names"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "string": "user_id"
+                        },
+                        {
+                          "string": "age"
+                        },
+                        {
+                          "string": "balance"
+                        }
+                      ]
+                    }
+                  },
                   {
                     "key": {
                       "symbol": "cooldown_sec"

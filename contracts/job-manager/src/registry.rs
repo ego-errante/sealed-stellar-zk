@@ -9,7 +9,7 @@
 //! The `Dataset` layout MUST match `dataset_registry::Dataset` byte-for-byte (same field order /
 //! types) so cross-contract `get_dataset` return values deserialize correctly. A test asserts the
 //! real registry contract round-trips through this client.
-use soroban_sdk::{contractclient, contracttype, Address, BytesN, Env};
+use soroban_sdk::{contractclient, contracttype, Address, BytesN, Env, String, Vec};
 
 #[contracttype]
 #[derive(Clone)]
@@ -20,6 +20,7 @@ pub struct Dataset {
     pub row_count: u64,
     pub k: u64,
     pub cooldown_sec: u32,
+    pub column_names: Vec<String>,
 }
 
 // The trait exists only so `#[contractclient]` can generate `DatasetRegistryClient`; the trait

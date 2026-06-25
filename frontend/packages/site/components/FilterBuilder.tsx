@@ -40,14 +40,15 @@ interface FilterCondition {
 }
 
 interface FilterBuilderProps {
-  numColumns: number;
+  columnNames: string[];
   onFilterChange: (compiledFilter: CompiledFilter | null) => void;
 }
 
 export function FilterBuilder({
-  numColumns,
+  columnNames,
   onFilterChange,
 }: FilterBuilderProps) {
+  const fieldLabel = (i: number) => columnNames[i]?.trim() || `Field ${i}`;
   const [conditions, setConditions] = useState<FilterCondition[]>([]);
   const [logicalOp, setLogicalOp] = useState<LogicalOp>("AND");
   const [showBuilder, setShowBuilder] = useState(false);
@@ -229,10 +230,10 @@ export function FilterBuilder({
             key={condition.id}
             className="flex items-start gap-2 p-3 bg-muted/50 rounded-md"
           >
-            <div className="flex-1 grid grid-cols-12 gap-2 items-end">
+            <div className="flex-1 grid grid-cols-2 gap-2 items-end">
               {/* Show logical operator between conditions */}
               {index > 0 && (
-                <div className="col-span-12 -mt-2 mb-1">
+                <div className="col-span-2 -mt-2 mb-1">
                   <Badge variant="outline" className="text-xs">
                     {logicalOp}
                   </Badge>
@@ -240,7 +241,7 @@ export function FilterBuilder({
               )}
 
               {/* NOT toggle */}
-              <div className="col-span-2">
+              <div className="col-span-1">
                 <Label className="text-xs">NOT</Label>
                 <Button
                   type="button"
@@ -256,7 +257,7 @@ export function FilterBuilder({
               </div>
 
               {/* Field Index */}
-              <div className="col-span-3">
+              <div className="col-span-1">
                 <Label className="text-xs">Field</Label>
                 <Select
                   value={condition.fieldIndex.toString()}
@@ -268,9 +269,9 @@ export function FilterBuilder({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {Array.from({ length: numColumns }, (_, i) => (
+                    {Array.from({ length: columnNames.length }, (_, i) => (
                       <SelectItem key={i} value={i.toString()}>
-                        Field {i}
+                        {fieldLabel(i)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -278,7 +279,7 @@ export function FilterBuilder({
               </div>
 
               {/* Operator */}
-              <div className="col-span-3">
+              <div className="col-span-1">
                 <Label className="text-xs">Operator</Label>
                 <Select
                   value={condition.operator}
@@ -304,7 +305,7 @@ export function FilterBuilder({
               </div>
 
               {/* Value */}
-              <div className="col-span-4">
+              <div className="col-span-1">
                 <Label className="text-xs">Value</Label>
                 <Input
                   type="number"
@@ -357,7 +358,7 @@ export function FilterBuilder({
             <span key={c.id}>
               {i > 0 && ` ${logicalOp} `}
               {c.negate && "NOT "}
-              (Field[{c.fieldIndex}] {operatorLabels[c.operator]} {c.value})
+              ({fieldLabel(c.fieldIndex)} {operatorLabels[c.operator]} {c.value})
             </span>
           ))}
         </div>

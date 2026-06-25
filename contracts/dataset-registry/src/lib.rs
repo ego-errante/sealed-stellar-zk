@@ -1,7 +1,7 @@
 #![no_std]
 //! DatasetRegistry: owners commit a dataset (Merkle root + schema + k-anonymity + cooldown).
 //! The root is the public commitment; raw rows live off-chain with the owner.
-use soroban_sdk::{contract, contractimpl, contracttype, Address, BytesN, Env};
+use soroban_sdk::{contract, contractimpl, contracttype, Address, BytesN, Env, String, Vec};
 
 const DAY_IN_LEDGERS: u32 = 17_280;
 const TTL_BUMP: u32 = 90 * DAY_IN_LEDGERS;
@@ -16,6 +16,9 @@ pub struct Dataset {
     pub row_count: u64,
     pub k: u64,
     pub cooldown_sec: u32,
+    /// Human-readable column labels, one per column (index i ⇒ column_names[i]). Committed on-chain
+    /// so the buyer and the proof reference the same agreed schema; the guest still works by index.
+    pub column_names: Vec<String>,
 }
 
 #[contracttype]
@@ -42,6 +45,7 @@ impl DatasetRegistry {
         row_count: u64,
         k: u64,
         cooldown_sec: u32,
+        column_names: Vec<String>,
     ) -> u64 {
         owner.require_auth();
         assert!(row_count > 0, "row_count must be > 0");
@@ -52,6 +56,11 @@ impl DatasetRegistry {
             merkle_root != BytesN::from_array(&env, &[0u8; 32]),
             "merkle_root must be non-zero"
         );
+        // Schema must label every column, so a buyer never references an unnamed/extra index.
+        assert!(
+            column_names.len() == num_columns,
+            "column_names length must equal num_columns"
+        );
 
         let id: u64 = env.storage().instance().get(&DataKey::NextId).unwrap_or(1);
         let ds = Dataset {
@@ -61,6 +70,7 @@ impl DatasetRegistry {
             row_count,
             k,
             cooldown_sec,
+            column_names,
         };
         let key = DataKey::Dataset(id);
         env.storage().persistent().set(&key, &ds);
