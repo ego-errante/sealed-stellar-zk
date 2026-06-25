@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Check, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
-import { OpNames } from "@cdm/shared";
 import { Button } from "@/components/ui/button";
 import { FulfillPanel } from "@/components/FulfillPanel";
 import { ResultView } from "@/components/ResultView";
@@ -14,6 +13,7 @@ import {
   type RequestView,
   type Status,
 } from "@/hooks/useJobManager";
+import { describeRequest } from "@/lib/query";
 import { truncate } from "@/lib/utils";
 
 const STATUS_CLASS: Record<Status, string> = {
@@ -36,6 +36,7 @@ export function RequestRow({
   const accept = useAcceptRequest();
   const reject = useRejectRequest();
   const isOwner = !!dataset && dataset.owner === currentAddress;
+  const queryText = describeRequest(request, dataset?.columnNames ?? []);
 
   async function run(fn: Promise<unknown>, label: string) {
     try {
@@ -50,18 +51,20 @@ export function RequestRow({
 
   return (
     <div className="rounded-md border border-border bg-card p-3">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <span className="font-mono text-sm">#{request.id.toString()}</span>{" "}
-          <span className="font-semibold">{OpNames[request.op]}</span>{" "}
-          <span className="font-mono text-xs text-muted-foreground">
-            {dataset?.columnNames[request.targetField]?.trim() ||
-              `field ${request.targetField}`}{" "}
-            · buyer {truncate(request.buyer)}
-          </span>
+          <div className="flex items-baseline gap-2">
+            <span className="font-mono text-sm">#{request.id.toString()}</span>
+            <span className="font-mono text-xs text-muted-foreground">
+              buyer {truncate(request.buyer)}
+            </span>
+          </div>
+          <p className="mt-1 break-words font-mono text-xs text-foreground">
+            {queryText}
+          </p>
         </div>
         <span
-          className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CLASS[request.status]}`}
+          className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CLASS[request.status]}`}
         >
           {request.status}
         </span>

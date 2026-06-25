@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useFulfill, type RequestView } from "@/hooks/useJobManager";
 import type { DatasetView } from "@/hooks/useDatasetRegistry";
 import { toProveParams } from "@/lib/convert";
+import { describeRequest } from "@/lib/query";
 import { getCsv, hasCsv, saveCsv } from "@/lib/csvStore";
 import { proverProve, proverRegister } from "@/lib/prover";
 
@@ -30,6 +31,7 @@ export function FulfillPanel({
   const [seal, setSeal] = useState("");
   const [journal, setJournal] = useState("");
   const [csvPresent, setCsvPresent] = useState(() => hasCsv(dataset.id));
+  const queryText = describeRequest(request, dataset.columnNames);
 
   async function submitProof(s: string, j: string) {
     await fulfill.mutateAsync({ requestId: request.id, seal: s, journal: j });
@@ -84,6 +86,14 @@ export function FulfillPanel({
 
   return (
     <div className="space-y-4 rounded-md border border-border bg-card/50 p-3">
+      <div className="rounded-md border border-proof/30 bg-proof/5 p-2">
+        <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+          Proving this query
+        </p>
+        <p className="mt-0.5 break-words font-mono text-xs text-foreground">
+          {queryText}
+        </p>
+      </div>
       <p className="text-xs text-muted-foreground">
         Prove on your own machine. The rows never go to the buyer or the chain —
         only the verified aggregate is bound.
